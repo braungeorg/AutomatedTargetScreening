@@ -1,0 +1,34 @@
+Package: ATS
+Title: Workflow to analyze high-resolution mass spectrometry data in target screening
+Version: 1.0.0
+Authors@R: 
+    person("Georg", "Braun", , "georg.braun@ufz.de", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-2513-9039"))
+Description: Package used to automate the analysis of high-resolution orbitrap mass spectrometry data for target screening of analytes. 
+License: CC BY
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.0
+Imports:
+  data.table (>= 1.14.2),
+  doParallel (>= 1.0.17),
+  doSNOW (>= 1.0.20),
+  dplyr (>= 1.0.9),
+  foreach (>= 1.5.2),
+  ggplot2 (>= 3.4.1),
+  ggtext (>= 0.1.2),
+  gtools (>= 3.9.2.2),
+  lubridate (>= 1.8.0),
+  MESS (>= 0.5.9),
+  openxlsx (>= 4.2.5),
+  qpdf (>= 1.3.0),
+  RaMS (>= 1.3.1),
+  seewave (>= 2.2.0),
+  stringr (>= 1.4.0),
+  tcpl (>= 2.1.0),
+  yaml (>= 2.3.5),
+  zoo (>= 1.8-10),
+  jmotif (>= 1.1.1),
+  outliers (>= 0.15),
+  plyr (>= 1.8.6)
+
