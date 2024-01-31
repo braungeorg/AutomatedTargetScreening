@@ -1591,8 +1591,16 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
           if(RMSD_Ratio<10){
             Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
           } else {
-            Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
-          }
+            #check for tailing and adjust to ceiling
+            center = match(max(Smoothie$int),Smoothie$int)
+            a = Smoothie$rt[center]-Smoothie$rt[1]
+            b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+            Tailing = (a+b)/(2*a)
+            if(is.na(Tailing)|Tailing>1){
+              Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+            } else {
+              Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+            }}
           
           if(is.na(Ratio)){
             Ratio = 0
@@ -1663,7 +1671,16 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
       if(RMSD_Ratio<10){
         Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
       } else {
-        Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+        #check for tailing and adjust to ceiling
+        center = match(max(Smoothie$int),Smoothie$int)
+        a = Smoothie$rt[center]-Smoothie$rt[1]
+        b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+        Tailing = (a+b)/(2*a)
+        if(is.na(Tailing)|Tailing>1){
+          Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+        } else {
+          Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+        }
       }
       
       if(is.na(Ratio)){
@@ -2026,6 +2043,8 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
         sequenci[Start:End] = "c"
       }
     }
+    
+    EIC_background = EIC_background[EIC_background$rt<quan_peak$Start_RT|EIC_background$rt>quan_peak$End_RT,]
     
     if (T%in%grepl(".mzML", files)){
       mean_Background = as.numeric(quantile(EIC_background$int,na.rm = T,probs = c(normal_background_quantile)))
@@ -2562,7 +2581,16 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
           if(RMSD_Ratio<10){
             Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
           } else {
-            Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+            #check for tailing and adjust to ceiling
+            center = match(max(Smoothie$int),Smoothie$int)
+            a = Smoothie$rt[center]-Smoothie$rt[1]
+            b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+            Tailing = (a+b)/(2*a)
+            if(is.na(Tailing)|Tailing>1){
+              Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+            } else {
+              Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+            }
           }
           
           if(is.na(Ratio)){
@@ -2632,8 +2660,17 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
       if(RMSD_Ratio<10){
         Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
       } else {
-        Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
-      }
+        #check for tailing and adjust to ceiling
+        center = match(max(Smoothie$int),Smoothie$int)
+        a = Smoothie$rt[center]-Smoothie$rt[1]
+        b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+        Tailing = (a+b)/(2*a)
+        if(is.na(Tailing)|Tailing>1){
+          Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+        } else {
+          Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+        }
+       }
       
       if(is.na(Ratio)){
         Ratio = 0
@@ -3776,7 +3813,16 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
           if(RMSD_Ratio<10){
             Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
           } else {
-            Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+            #check for tailing and adjust to ceiling
+            center = match(max(Smoothie$int),Smoothie$int)
+            a = Smoothie$rt[center]-Smoothie$rt[1]
+            b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+            Tailing = (a+b)/(2*a)
+            if(is.na(Tailing)|Tailing>1){
+              Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+            } else {
+              Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+            }
           }
           
           if(is.na(Ratio)){
@@ -3852,7 +3898,16 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
       if(RMSD_Ratio<10){
         Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
       } else {
-        Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+        #check for tailing and adjust to ceiling
+        center = match(max(Smoothie$int),Smoothie$int)
+        a = Smoothie$rt[center]-Smoothie$rt[1]
+        b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+        Tailing = (a+b)/(2*a)
+        if(is.na(Tailing)|Tailing>1){
+          Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+        } else {
+          Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+        }
       }
       
       if(is.na(Ratio)){
@@ -4748,7 +4803,16 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                     if(RMSD_Ratio<10){
                       Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
                     } else {
-                      Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+                      #check for tailing and adjust to ceiling
+                      center = match(max(Smoothie$int),Smoothie$int)
+                      a = Smoothie$rt[center]-Smoothie$rt[1]
+                      b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+                      Tailing = (a+b)/(2*a)
+                      if(is.na(Tailing)|Tailing>1){
+                        Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+                      } else {
+                        Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+                      }
                     }
                     
                     if(is.na(Ratio)){
@@ -4821,7 +4885,16 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                 if(RMSD_Ratio<10){
                   Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
                 } else {
-                  Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+                  #check for tailing and adjust to ceiling
+                  center = match(max(Smoothie$int),Smoothie$int)
+                  a = Smoothie$rt[center]-Smoothie$rt[1]
+                  b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+                  Tailing = (a+b)/(2*a)
+                  if(is.na(Tailing)|Tailing>1){
+                    Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+                  } else {
+                    Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+                  }
                 }
                 
                 if(is.na(Ratio)){
