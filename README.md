@@ -146,20 +146,27 @@ Settings relevant for the automatic data evalution:
 - alphabet_size: Numeric, the range/size of the alphabet used in symbolic aggregate approximation (SAX)
 - minimum_search_window: Numeric, the minimum range in minutes that is screened for peaks in both directions of the aimed retention time
 - use_shifting_search_window: Boolean to allow/deny to shift/adjust search window while generating the peaklist?
-- zigzag_trigger_threshold: Numeric, the portion of the EIC in terms of intensity values that needs to be defined as *zigzag*, meaning highly fluctuating intensities
+- maximum_nr_of_search_window_extensions: Numeric, the maximum number of search window extensions if the shifting search window is allowed per direction (left and right)
+- zigzag_trigger_threshold: Numeric, the portion of the EIC in terms of intensity values that needs to be defined as zigzag, meaning highly fluctuating intensities
 - normal_background_quantile: Numeric, the quantile of the background defining intensity values used to define the baseline
 - higher_background_quantile: Numeric, the quantile of the background-defining intensity values used to define the baseline if the EIC is considered problematic, i.e. exceeding the zigzag_trigger_threshold
 - minimum_background_ratio: Numeric, the minimum ratio of intensity and baseline an intensity value needs to exceed to be considered a peak
 - extended_baseline_factor: Numeric, this factor is applied to the baseline and all intensities below factor*baseline are considered baseline
+- maximum_nr_of_stagnant_intensity_values_peaktop: Numeric, the maximum number of intensities without significant decrease after which the start and end time of the peaktop is defined
+- intensity_factor_decrease_peaktop: Numeric, the factor applied to the last peak-assigned intensity which needs to be undercut within the maximum number of intensities for a decrease to be considered significant in defining the peaktop
+- intensity_factor_increase_edges: Numeric, the factor applied to the last peak-assigned intensity which if exceeded triggers a density-dependent counter to assign small increases to the peak while splitting peaks at the peak edges
+- intensity_factor_decrease_edges: Numeric, the factor applied to the last peak-assigned intensity which needs to be undercut within the density-dependent maximum number of datapoints for a decrease to be considered significant in defining the peak edges
+- density_factor_increase_edges: Numeric, the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having a constant increase or lack of decrease triggers a stop of the peak detection algorithm and defines the ends of the peak edges
+- density_factor_decrease_edges: Numeric, the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having too many stagnant intensity values triggers a stop of the peak detection algorithm and defines the ends of the peak edges
 - width_smoothing: Numeric, a factor which defines how the data density is increased when smoothing. Higher values increase data density but can lead to "oversaturation"
 - width_factor_background: Numeric, a factor defining how a defined search window will be extended to define the background EIC
 - sample_search_window: Numeric, the time in minutes added to the start and end retention time of a defined peak in the suspect screening (to improve visualization)
 - outer_search_window_multiple_peaks: Numeric, the larger time in minutes added to the start and end retention time of a defined peak to generate the peaklist if peak patterns are expected, used for different intensity ratios to filter for invalid peaks
 - inner_search_window_multiple_peaks: Numeric, the smaller time in minutes added to the start and end retention time of a defined peak to generate the peaklist if peak patterns are expected, used for different intensity ratios to filter for invalid peaks
-- outer_intensity_ratio_multiple_peaks: Numeric, ratio of the maximum intensity within the larger RT range expected for peak patterns, usually larger ratio like 0.1
-- inner_intensity_ratio_multiple_peaks: Numeric, ratio of the maximum intensity within the larger RT range expected for peak patterns, usually lower ratio like 0.05
+- outer_intensity_ratio_multiple_peaks: Numeric, ratio of the maximum intensity within the larger RT range expected for peak patterns
+- inner_intensity_ratio_multiple_peaks: Numeric, ratio of the maximum intensity within the larger RT range expected for peak patterns
 - maximum_allowed_shift: Numeric, the maximum shift allowed in minutes
-- maximum_allowed_shift_ratio: Numeric, ratio of ... which is needed to define if the
+- maximum_allowed_shift_ratio: Numeric, the maximum fraction of IS-dependent shift of the allowed shift, only relevant if allowed shift exceeds maximum value
 - maximum_nr_of_a: Numeric, a defines the "baseline" of a peak and needs a limit so that very flat peaks or peaks with only few high intensity values are not considered valid
 - minimum_nr_of_high_intensity_letters: Numeric, similar to the limitation of a you can set a minimum of high-intensity letters (dependent on your selected alhabet size) to ensure that your selected peaks are highly deviating from the baseline
 - minimum_nr_of_datapoints_per_peak: Numeric, the minimum number of data points needed to define a peak
@@ -174,15 +181,15 @@ Settings relevant for the automatic data evalution:
 - maximum_RT_tolerance: Numeric, the maximum retetion time tolerance for the apex retention time of a peak
 - maximum_RT_tolerance_end: Numeric, the maximum retention time tolerance for the end retention times of a peak
 - minimum_datapoints_per_sample_peak: Numeric, the lowest number of datapoints needed to define a peak in the suspect screening
-- minimum_qualitative_threshold: Numeric,
-- use.area: Boolean, shall area (T) or Height (F) be used for analysis?
+- minimum_qualitative_threshold: Numeric, the ratio of the total number of data points which needs to exceed the in-sample LOD to trigger at least qualitative detection
+- use.area: Boolean, shall area (T) or height (F) be used for analysis?
 - max_calibration: Numeric, ratio of highest accepted calculated value from nominal concentration. I.e. 1.2 = 1200 ng/mL are still valid if 1000 ng/mL was used as highest concentration.
 - minimum_r2: Numeric, the lowest accepted coefficient of determination of calibration curves
+- minimum_r2_intensity_dependent_shift: Numeric, the lowest accepted coefficient of determination for linear regression used to identify valid intensity-dependent shifts within the calibration
 - maximum_error_of_quantitation: Numeric, the maximum accepted error of quantitation in percent
 - minimum_nr_of_datapoints_calibration: Numeric, the minimum number of datapoints needed to define a valid calibration
-- quantified_unit: Character, the concentration unit (i.e. "ng/mL")
+- quantified_unit: Character, the concentration unit
 - IS_deviation: Numeric, what deviation is acceptable for internal standards? I.e. 0.2 = 20% deviation
-- Reference_deviaton: Numeric, what deviation is acceptable for same-level reference standards. I.e. 0.2 = 20% deviation
 
 ## 3_Results
 

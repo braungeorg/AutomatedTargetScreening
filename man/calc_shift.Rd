@@ -14,6 +14,12 @@ calc_shift(
   alphabet_size,
   zigzag_trigger_threshold,
   extended_baseline_factor,
+  maximum_nr_of_stagnant_intensity_values_peaktop,
+  intensity_factor_decrease_peaktop,
+  intensity_factor_increase_edges,
+  intensity_factor_decrease_edges,
+  density_factor_increase_edges,
+  density_factor_decrease_edges,
   maximum_nr_of_a,
   minimum_nr_of_high_intensity_letters,
   minimum_peak_area,
@@ -40,6 +46,18 @@ calc_shift(
 \item{zigzag_trigger_threshold}{defines the maximum fraction of the length of the EIC which can consist of zigzag patterns before triggering a more inclusive background calculation}
 
 \item{extended_baseline_factor}{a ratio applied to the baseline to define values which are considered as baseline}
+
+\item{maximum_nr_of_stagnant_intensity_values_peaktop}{the maximum number of intensities without significant decrease after which the start and end time of the peaktop is defined}
+
+\item{intensity_factor_decrease_peaktop}{the factor applied to the last peak-assigned intensity which needs to be undercut within the maximum number of intensities for a decrease to be considered significant in defining the peaktop}
+
+\item{intensity_factor_increase_edges}{the factor applied to the last peak-assigned intensity which if exceeded triggers a density-dependent counter to assign small increases to the peak while splitting peaks at the peak edges}
+
+\item{intensity_factor_decrease_edges}{the factor applied to the last peak-assigned intensity which needs to be undercut within the density-dependent maximum number of datapoints for a decrease to be considered significant in defining the peak edges}
+
+\item{density_factor_increase_edges}{the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having a constant increase or lack of decrease triggers a stop of the peak detection algorithm and defines the ends of the peak edges}
+
+\item{density_factor_decrease_edges}{the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having too many stagnant intensity values triggers a stop of the peak detection algorithm and defines the ends of the peak edges}
 
 \item{maximum_nr_of_a}{within SAX the letter a defines values with the lowest values and a valid peak shall only have a distinct number of these low values to avoid too flat peaks}
 

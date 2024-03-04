@@ -34,6 +34,12 @@ sample_analysis(
   higher_background_quantile,
   minimum_background_ratio,
   extended_baseline_factor,
+  maximum_nr_of_stagnant_intensity_values_peaktop,
+  intensity_factor_decrease_peaktop,
+  intensity_factor_increase_edges,
+  intensity_factor_decrease_edges,
+  density_factor_increase_edges,
+  density_factor_decrease_edges,
   width_smoothing,
   width_factor_background,
   sample_search_window,
@@ -49,6 +55,8 @@ sample_analysis(
   max_MINDIST,
   minimum_datapoints_per_sample_peak,
   minimum_qualitative_threshold,
+  extend_r = 0,
+  extend_l = 0,
   t,
   j,
   rep
@@ -107,6 +115,18 @@ sample_analysis(
 
 \item{extended_baseline_factor}{a ratio applied to the baseline to define values which are considered as baseline}
 
+\item{maximum_nr_of_stagnant_intensity_values_peaktop}{the maximum number of intensities without significant decrease after which the start and end time of the peaktop is defined}
+
+\item{intensity_factor_decrease_peaktop}{the factor applied to the last peak-assigned intensity which needs to be undercut within the maximum number of intensities for a decrease to be considered significant in defining the peaktop}
+
+\item{intensity_factor_increase_edges}{the factor applied to the last peak-assigned intensity which if exceeded triggers a density-dependent counter to assign small increases to the peak while splitting peaks at the peak edges}
+
+\item{intensity_factor_decrease_edges}{the factor applied to the last peak-assigned intensity which needs to be undercut within the density-dependent maximum number of datapoints for a decrease to be considered significant in defining the peak edges}
+
+\item{density_factor_increase_edges}{the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having a constant increase or lack of decrease triggers a stop of the peak detection algorithm and defines the ends of the peak edges}
+
+\item{density_factor_decrease_edges}{the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having too many stagnant intensity values triggers a stop of the peak detection algorithm and defines the ends of the peak edges}
+
 \item{width_smoothing}{a numeric value needed to define the density of smoothing for the EIC}
 
 \item{width_factor_background}{the factor applied to the peak width to define a background window}
@@ -133,13 +153,19 @@ sample_analysis(
 
 \item{minimum_datapoints_per_sample_peak}{the minimal number of data points which should define a valid peak in target screening}
 
+\item{minimum_qualitative_threshold}{an intensity value which needs to be exceeded at minimum to at least qualitatively annotate a peak}
+
+\item{extend_r}{a numeric value indicating if the EIC should be extended to the right due to a cut-off peak whilst not identifying any other peaks}
+
+\item{extend_l}{a numeric value indicating if the EIC should be extended to the left due to a cut-off peak whilst not identifying any other peaks}
+
 \item{t}{index of the compound within Peaks}
 
 \item{j}{index of the file to be analyzed in files}
 
 \item{rep}{boolean if the function was already called before}
 
-\item{is_centroidedrelevant}{for mzML files if scan is centroided or not}
+\item{is_centroided}{relevant for mzML files if scan is centroided or not}
 
 \item{maximum_cutoff_intensity}{if the intensity of cutoffs which split peaks exceed this value, the cutoff is considered a peak-splitting cutoff and thereby enforced}
 }

@@ -161,6 +161,12 @@ errors = function(e){
 #' @param alphabet_size the alphabet size used for SAX functions
 #' @param zigzag_trigger_threshold defines the maximum fraction of the length of the EIC which can consist of zigzag patterns before triggering a more inclusive background calculation
 #' @param extended_baseline_factor a ratio applied to the baseline to define values which are considered as baseline
+#' @param maximum_nr_of_stagnant_intensity_values_peaktop the maximum number of intensities without significant decrease after which the start and end time of the peaktop is defined
+#' @param intensity_factor_decrease_peaktop the factor applied to the last peak-assigned intensity which needs to be undercut within the maximum number of intensities for a decrease to be considered significant in defining the peaktop
+#' @param intensity_factor_increase_edges the factor applied to the last peak-assigned intensity which if exceeded triggers a density-dependent counter to assign small increases to the peak while splitting peaks at the peak edges
+#' @param intensity_factor_decrease_edges the factor applied to the last peak-assigned intensity which needs to be undercut within the density-dependent maximum number of datapoints for a decrease to be considered significant in defining the peak edges
+#' @param density_factor_increase_edges the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having a constant increase or lack of decrease triggers a stop of the peak detection algorithm and defines the ends of the peak edges
+#' @param density_factor_decrease_edges the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having too many stagnant intensity values triggers a stop of the peak detection algorithm and defines the ends of the peak edges
 #' @param maximum_nr_of_a within SAX the letter a defines values with the lowest values and a valid peak shall only have a distinct number of these low values to avoid too flat peaks
 #' @param minimum_nr_of_high_intensity_letters dependent on the selected SAX alphabet, the SAX sequence of a valid peak should have at least the respective number of letters defining high intensities
 #' @param minimum_peak_area the value of a peak area which needs to be exceeded to be a valid peak
@@ -168,7 +174,7 @@ errors = function(e){
 #' @param i index of the standard from IS
 #' @param q index of the reference from References
 #' @export
-calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,alphabet_size,zigzag_trigger_threshold,extended_baseline_factor,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,minimum_peak_area,maximum_peak_width,i,q){
+calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,alphabet_size,zigzag_trigger_threshold,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,minimum_peak_area,maximum_peak_width,i,q){
   
   if (T%in%grepl(".mzML", References)) {
     EIC = RaMS::grabMSdata(files = paste0(sample_path, "/", References[q]),
@@ -403,7 +409,7 @@ calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,
               Peak_start = Points_index[[c]]+1
               break
             }
-            if(Check[c]>=(Begin_int*0.7)){
+            if(Check[c]>=(Begin_int*intensity_factor_decrease_peaktop)){
               SAX_result_smooth[Points_index[c]] = "b"
               while(counter!=0){
                 SAX_result_smooth[Points_index[c-counter]] = "b"
@@ -412,9 +418,9 @@ calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,
             } else {
               counter = counter+1
             }
-            if(counter==7){
+            if(counter==maximum_nr_of_stagnant_intensity_values_peaktop){
               Peak_start = Points_index[c-7]
-              if(c==7){
+              if(c==maximum_nr_of_stagnant_intensity_values_peaktop){
                 Peak_start = Peak
               }
               break
@@ -450,7 +456,7 @@ calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,
               Peak_end = Points_index[[c]]-1
               break
             }
-            if(Check[c]>=(0.7*End_int)){
+            if(Check[c]>=(intensity_factor_decrease_peaktop*End_int)){
               SAX_result_smooth[Points_index[c]] = "b"
               SAX_result_smooth[Points_index[c-1]] = "b"
               while(counter!=0){
@@ -460,9 +466,9 @@ calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,
             } else {
               counter = counter+1
             }
-            if(counter==7){
+            if(counter==maximum_nr_of_stagnant_intensity_values_peaktop){
               Peak_end = Points_index[c-7]
-              if(c==7){
+              if(c==maximum_nr_of_stagnant_intensity_values_peaktop){
                 Peak_end = Peak
               }
               break
@@ -511,15 +517,15 @@ calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,
               } else {
                 counter = counter+1
                 if(is.na(threshold)){
-                  threshold = Points_int[c-1]*0.6
+                  threshold = Points_int[c-1]*intensity_factor_decrease_edges
                 }
                 Cutoff_l = Points_index[c-1]
               }
             }else{
-              if(Check[c]>(1.4*1.6666666*threshold)){
+              if(Check[c]>(intensity_factor_increase_edges*(1/intensity_factor_decrease_edges)*threshold)){
                 counter2 = counter2+1
               }
-              if(counter2>(0.25*density+1)){
+              if(counter2>(density_factor_increase_edges*density+1)){
                 threshold=0
               }
               if(Check[c]<threshold){
@@ -536,8 +542,8 @@ calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,
                 counter = counter+1
               }
               #Check for 60 % decrease over 0.5 minutes
-              if(counter==(5*density+1)){
-                Cutoff_l = Points_index[c-((5*density+1)-1)]
+              if(counter==(density_factor_decrease_edges*density+1)){
+                Cutoff_l = Points_index[c-((density_factor_decrease_edges*density+1)-1)]
                 break
               }
             }
@@ -575,15 +581,15 @@ calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,
               } else {
                 counter = counter+1
                 if(is.na(threshold)){
-                  threshold = Points_int[c-1]*0.6
+                  threshold = Points_int[c-1]*intensity_factor_decrease_edges
                 }
                 Cutoff_r = Points_index[c-1]
               }
             }else{
-              if(Check[c]>(1.4*1.6666666*threshold)){
+              if(Check[c]>(intensity_factor_increase_edges*(1/intensity_factor_decrease_edges)*threshold)){
                 counter2 = counter2+1
               }
-              if(counter2>(0.25*density+1)){
+              if(counter2>(density_factor_increase_edges*density+1)){
                 threshold=0
               }
               if(Check[c]<threshold){
@@ -600,8 +606,8 @@ calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,
                 counter = counter+1
               }
               #Check for 60 % decrease over 0.5 minutes
-              if(counter==(5*density+1)){
-                Cutoff_r = Points_index[c-((5*density+1)-1)]
+              if(counter==(density_factor_decrease_edges*density+1)){
+                Cutoff_r = Points_index[c-((density_factor_decrease_edges*density+1)-1)]
                 break
               }
             }
@@ -889,11 +895,16 @@ calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,
 #' @param normal_background_quantile the quantile used to define background intensities from the background EIC
 #' @param higher_background_quantile the quantile used to define background intensities from the background EIC if the chromatogram is showing quality flags 
 #' @param extended_baseline_factor a ratio applied to the baseline to define values which are considered as baseline
+#' @param maximum_nr_of_stagnant_intensity_values_peaktop the maximum number of intensities without significant decrease after which the start and end time of the peaktop is defined
+#' @param intensity_factor_decrease_peaktop the factor applied to the last peak-assigned intensity which needs to be undercut within the maximum number of intensities for a decrease to be considered significant in defining the peaktop
+#' @param intensity_factor_increase_edges the factor applied to the last peak-assigned intensity which if exceeded triggers a density-dependent counter to assign small increases to the peak while splitting peaks at the peak edges
+#' @param intensity_factor_decrease_edges the factor applied to the last peak-assigned intensity which needs to be undercut within the density-dependent maximum number of datapoints for a decrease to be considered significant in defining the peak edges
+#' @param density_factor_increase_edges the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having a constant increase or lack of decrease triggers a stop of the peak detection algorithm and defines the ends of the peak edges
+#' @param density_factor_decrease_edges the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having too many stagnant intensity values triggers a stop of the peak detection algorithm and defines the ends of the peak edges
 #' @param maximum_nr_of_a within SAX the letter a defines values with the lowest values and a valid peak shall only have a distinct number of these low values to avoid too flat peaks
 #' @param minimum_nr_of_high_intensity_letters dependent on the selected SAX alphabet, the SAX sequence of a valid peak should have at least the respective number of letters defining high intensities
 #' @param minimum_peak_area the value of a peak area which needs to be exceeded to be a valid peak
 #' @param maximum_peak_width the maximum allowed peak width in minutes
-#' @param extended_baseline_factor a ratio applied to the baseline to define values which are considered as baseline
 #' @param minimum_background_ratio the minimum ratio expected for a valid chromatogram of maximum intensity and the normal background quantile
 #' @param width_smoothing a numeric value needed to define the density of smoothing for the EIC
 #' @param maximum_nr_of_a within SAX the letter a defines values with the lowest values and a valid peak shall only have a distinct number of these low values to avoid too flat peaks
@@ -901,10 +912,11 @@ calc_shift = function(sample_path,References,IS,ppm_val,method_time,FullscanMS1,
 #' @param minimum_peak_area the value of a peak area which needs to be exceeded to be a valid peak
 #' @param maximum_peak_width the maximum allowed peak width in minutes
 #' @param minimum_nr_of_datapoints_per_peak the minimal number of data points needed to define a valid peak
+#' @param minimum_r2_intensity_dependent_shift the lowest accepted coefficient of determination for linear regression used to identify valid intensity-dependent shifts within the calibration
 #' @param z index of the compound within compounds_shift_corrected to be analyzed
 #' @param Reference index of the reference file to be used
 #' @export
-get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,FullscanMS1,Scan_filters,precursor_window,outer_search_window_multiple_peaks,inner_search_window_multiple_peaks,outer_intensity_ratio_multiple_peaks,inner_intensity_ratio_multiple_peaks,References_refined,compounds_shift_corrected,ppm_val,Times_shift_r=0,Times_shift_l=0,use_shifting_search_window=F,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,extended_baseline_factor,minimum_background_ratio,width_smoothing,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,z,Reference){
+get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,FullscanMS1,Scan_filters,precursor_window,outer_search_window_multiple_peaks,inner_search_window_multiple_peaks,outer_intensity_ratio_multiple_peaks,inner_intensity_ratio_multiple_peaks,References_refined,compounds_shift_corrected,ppm_val,Times_shift_r=0,Times_shift_l=0,use_shifting_search_window=F,maximum_nr_of_search_window_extensions,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,minimum_background_ratio,width_smoothing,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,minimum_r2_intensity_dependent_shift,z,Reference){
   
   if(compounds_shift_corrected$MS1.MS2[z]=="MS2"){
     o = z-1
@@ -1222,7 +1234,7 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
               Peak_start = Points_index[[c]]+1
               break
             }
-            if(Check[c]>=(Begin_int*0.7)){
+            if(Check[c]>=(Begin_int*intensity_factor_decrease_peaktop)){
               SAX_result_smooth[Points_index[c]] = "b"
               while(counter!=0){
                 SAX_result_smooth[Points_index[c-counter]] = "b"
@@ -1231,9 +1243,9 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
             } else {
               counter = counter+1
             }
-            if(counter==7){
+            if(counter==maximum_nr_of_stagnant_intensity_values_peaktop){
               Peak_start = Points_index[c-7]
-              if(c==7){
+              if(c==maximum_nr_of_stagnant_intensity_values_peaktop){
                 Peak_start = Peak
               }
               break
@@ -1269,7 +1281,7 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
               Peak_end = Points_index[[c]]-1
               break
             }
-            if(Check[c]>=(0.7*End_int)){
+            if(Check[c]>=(intensity_factor_decrease_peaktop*End_int)){
               SAX_result_smooth[Points_index[c]] = "b"
               SAX_result_smooth[Points_index[c-1]] = "b"
               while(counter!=0){
@@ -1279,9 +1291,9 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
             } else {
               counter = counter+1
             }
-            if(counter==7){
+            if(counter==maximum_nr_of_stagnant_intensity_values_peaktop){
               Peak_end = Points_index[c-7]
-              if(c==7){
+              if(c==maximum_nr_of_stagnant_intensity_values_peaktop){
                 Peak_end = Peak
               }
               break
@@ -1330,15 +1342,15 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
               } else {
                 counter = counter+1
                 if(is.na(threshold)){
-                  threshold = Points_int[c-1]*0.6
+                  threshold = Points_int[c-1]*intensity_factor_decrease_edges
                 }
                 Cutoff_l = Points_index[c-1]
               }
             }else{
-              if(Check[c]>(1.4*1.6666666*threshold)){
+              if(Check[c]>(intensity_factor_increase_edges*(1/intensity_factor_decrease_edges)*threshold)){
                 counter2 = counter2+1
               }
-              if(counter2>(0.25*density+1)){
+              if(counter2>(density_factor_increase_edges*density+1)){
                 threshold=0
               }
               if(Check[c]<threshold){
@@ -1355,8 +1367,8 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
                 counter = counter+1
               }
               
-              if(counter==(5*density+1)){
-                Cutoff_l = Points_index[c-((5*density+1)-1)]
+              if(counter==(density_factor_decrease_edges*density+1)){
+                Cutoff_l = Points_index[c-((density_factor_decrease_edges*density+1)-1)]
                 break
               }
             }
@@ -1393,15 +1405,15 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
               } else {
                 counter = counter+1
                 if(is.na(threshold)){
-                  threshold = Points_int[c-1]*0.6
+                  threshold = Points_int[c-1]*intensity_factor_decrease_edges
                 }
                 Cutoff_r = Points_index[c-1]
               }
             }else{
-              if(Check[c]>(1.4*1.6666666*threshold)){
+              if(Check[c]>(intensity_factor_increase_edges*(1/intensity_factor_decrease_edges)*threshold)){
                 counter2 = counter2+1
               }
-              if(counter2>(0.25*density+1)){
+              if(counter2>(density_factor_increase_edges*density+1)){
                 threshold=0
               }
               if(Check[c]<threshold){
@@ -1418,8 +1430,8 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
                 counter = counter+1
               }
               
-              if(counter==(5*density+1)){
-                Cutoff_r = Points_index[c-((5*density+1)-1)]
+              if(counter==(density_factor_decrease_edges*density+1)){
+                Cutoff_r = Points_index[c-((density_factor_decrease_edges*density+1)-1)]
                 break
               }
             }
@@ -1579,12 +1591,12 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
           
           Smoothie1 = Smoothie
           Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
-          #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 ???M
+          #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 M
           tcpl_fit = tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
                                    resp = Smoothie1$int,
                                    bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T))
           
-          RMSD_Ratio = Background/Baseline*100
+          RMSD_Ratio = plyr::round_any(Background/Baseline*100,1,ceiling)
           if(is.na(RMSD_Ratio)|is.nan(RMSD_Ratio)){
             RMSD_Ratio = 0
           }
@@ -1592,18 +1604,20 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
             Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
           } else {
             #check for tailing and adjust to ceiling
-            center = match(max(Smoothie$int),Smoothie$int)
-            a = Smoothie$rt[center]-Smoothie$rt[1]
-            b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
-            Tailing = (a+b)/(2*a)
+            if(nrow(Smoothie)>1){
+              center = match(max(Smoothie$int),Smoothie$int)
+              a = Smoothie$rt[center]-Smoothie$rt[1]
+              b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+              Tailing = (a+b)/(2*a)
+            } else {
+              Tailing = NA
+            }
+            
             if(is.na(Tailing)|Tailing>1){
               Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
             } else {
               Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
-            }}
-          
-          if(is.na(Ratio)){
-            Ratio = 0
+            }
           }
           
           #Constant = no real peak, too flat
@@ -1613,7 +1627,30 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
           
           if(!is.na(Gainloss_AIC)){
             if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
-              Gainloss_AIC = NA
+              Smoothie = as.data.frame(ksmooth(Peakl$rt,Peakl$int,"normal",bandwidth = bandwidth*2))
+              colnames(Smoothie) = c("rt","int")
+              Smoothie1 = Smoothie
+              Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
+              
+              
+              tcpl_fit = tryCatch(tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
+                                                resp = Smoothie1$int,
+                                                bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T)),error=function(e){tcpl_fit=NA})
+              
+              if(!is.na(tcpl_fit)){
+                #Constant = no real peak, too flat
+                Constant_AIC = tcpl_fit$cnst_aic
+                #Gainloss = Increasing, then decreasing (in significant manner) -> likely peak
+                Gainloss_AIC = tcpl_fit$gnls_aic
+              } else {
+                Gainloss_AIC = NA
+              }
+              
+              if(!is.na(Gainloss_AIC)){
+                if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
+                  Gainloss_AIC = NA
+                }
+              }
             }
           }
           
@@ -1659,12 +1696,12 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
       
       Smoothie1 = Smoothie
       Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
-      #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 ???M
+      #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 M
       tcpl_fit = tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
                                resp = Smoothie1$int,
                                bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T))
       
-      RMSD_Ratio = Background/Baseline*100
+      RMSD_Ratio = plyr::round_any(Background/Baseline*100,1,ceiling)
       if(is.na(RMSD_Ratio)|is.nan(RMSD_Ratio)){
         RMSD_Ratio = 0
       }
@@ -1672,10 +1709,15 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
         Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
       } else {
         #check for tailing and adjust to ceiling
-        center = match(max(Smoothie$int),Smoothie$int)
-        a = Smoothie$rt[center]-Smoothie$rt[1]
-        b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
-        Tailing = (a+b)/(2*a)
+        if(nrow(Smoothie)>1){
+          center = match(max(Smoothie$int),Smoothie$int)
+          a = Smoothie$rt[center]-Smoothie$rt[1]
+          b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+          Tailing = (a+b)/(2*a)
+        } else {
+          Tailing = NA
+        }
+        
         if(is.na(Tailing)|Tailing>1){
           Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
         } else {
@@ -1694,7 +1736,30 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
       
       if(!is.na(Gainloss_AIC)){
         if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
-          Gainloss_AIC = NA
+          Smoothie = as.data.frame(ksmooth(Peakl$rt,Peakl$int,"normal",bandwidth = bandwidth*2))
+          colnames(Smoothie) = c("rt","int")
+          Smoothie1 = Smoothie
+          Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
+          
+          
+          tcpl_fit = tryCatch(tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
+                                            resp = Smoothie1$int,
+                                            bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T)),error=function(e){tcpl_fit=NA})
+          
+          if(!is.na(tcpl_fit)){
+            #Constant = no real peak, too flat
+            Constant_AIC = tcpl_fit$cnst_aic
+            #Gainloss = Increasing, then decreasing (in significant manner) -> likely peak
+            Gainloss_AIC = tcpl_fit$gnls_aic
+          } else {
+            Gainloss_AIC = NA
+          }
+          
+          if(!is.na(Gainloss_AIC)){
+            if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
+              Gainloss_AIC = NA
+            }
+          }
         }
       }
       
@@ -1801,8 +1866,8 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
       }
       
       if((Times_shift_r_old!=Times_shift_r|Times_shift_l_old!=Times_shift_l)&use_shifting_search_window==T){
-        if(Times_shift_r<10&Times_shift_l<10){
-          Peaklist_final = get_peaks_all(sample_path,sample,RT_range,Multiple,method_time,FullscanMS1,Scan_filters,precursor_window,outer_search_window_multiple_peaks,inner_search_window_multiple_peaks,outer_intensity_ratio_multiple_peaks,inner_intensity_ratio_multiple_peaks,References_refined,compounds_shift_corrected,ppm_val,Times_shift_r=Times_shift_r,Times_shift_l=Times_shift_l,use_shifting_search_window=T,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,extended_baseline_factor,minimum_background_ratio,width_smoothing,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,z,Reference)
+        if(Times_shift_r<maximum_nr_of_search_window_extensions&Times_shift_l<maximum_nr_of_search_window_extensions){
+          Peaklist_final = get_peaks_all(sample_path,sample,RT_range,Multiple,method_time,FullscanMS1,Scan_filters,precursor_window,outer_search_window_multiple_peaks,inner_search_window_multiple_peaks,outer_intensity_ratio_multiple_peaks,inner_intensity_ratio_multiple_peaks,References_refined,compounds_shift_corrected,ppm_val,Times_shift_r=Times_shift_r,Times_shift_l=Times_shift_l,use_shifting_search_window=T,maximum_nr_of_search_window_extensions,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,minimum_background_ratio,width_smoothing,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,minimum_r2_intensity_dependent_shift,z,Reference)
         }
       }
     }
@@ -1851,6 +1916,12 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
 #' @param higher_background_quantile the quantile used to define background intensities from the background EIC if the chromatogram is showing quality flags 
 #' @param minimum_background_ratio the minimum ratio expected for a valid chromatogram of maximum intensity and the normal background quantile
 #' @param extended_baseline_factor a ratio applied to the baseline to define values which are considered as baseline
+#' @param maximum_nr_of_stagnant_intensity_values_peaktop the maximum number of intensities without significant decrease after which the start and end time of the peaktop is defined
+#' @param intensity_factor_decrease_peaktop the factor applied to the last peak-assigned intensity which needs to be undercut within the maximum number of intensities for a decrease to be considered significant in defining the peaktop
+#' @param intensity_factor_increase_edges the factor applied to the last peak-assigned intensity which if exceeded triggers a density-dependent counter to assign small increases to the peak while splitting peaks at the peak edges
+#' @param intensity_factor_decrease_edges the factor applied to the last peak-assigned intensity which needs to be undercut within the density-dependent maximum number of datapoints for a decrease to be considered significant in defining the peak edges
+#' @param density_factor_increase_edges the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having a constant increase or lack of decrease triggers a stop of the peak detection algorithm and defines the ends of the peak edges
+#' @param density_factor_decrease_edges the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having too many stagnant intensity values triggers a stop of the peak detection algorithm and defines the ends of the peak edges
 #' @param width_smoothing a numeric value needed to define the density of smoothing for the EIC
 #' @param width_factor_background the factor applied to the peak width to define a background window
 #' @param sample_search_window the search window in minutes added to both ends of the expected retention time used to screen for the peak of interest
@@ -1862,7 +1933,7 @@ get_peaks_all = function(sample_path,sample,RT_range,Multiple,method_time,Fullsc
 #' @param t index of the compound within Peaks
 #' @param j index of the file to be analyzed in files
 #' @export
-IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,Multiple,RT_range,files,Peaks,Peaks_list,compounds_shift_corrected,FullscanMS1,Scan_filters,ppm_val,method_time,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,width_smoothing,width_factor_background,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,m,t,j){
+IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,Multiple,RT_range,files,Peaks,Peaks_list,compounds_shift_corrected,FullscanMS1,Scan_filters,ppm_val,method_time,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,width_smoothing,width_factor_background,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,m,t,j){
   
   quan_peak = Peaks[t,]
   
@@ -1965,6 +2036,8 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
   bad_chroma = F
   
   EIC_background = dplyr::filter(EIC,Filter_background==T)
+  EIC_background = EIC_background[EIC_background$rt<quan_peak$Start_RT|EIC_background$rt>quan_peak$End_RT,]
+  
   EIC = dplyr::filter(EIC,Filter==F)
   if(length(EIC$rt)<3|length(EIC_background$rt)<3){
     bad_chroma = T
@@ -2043,8 +2116,6 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
         sequenci[Start:End] = "c"
       }
     }
-    
-    EIC_background = EIC_background[EIC_background$rt<quan_peak$Start_RT|EIC_background$rt>quan_peak$End_RT,]
     
     if (T%in%grepl(".mzML", files)){
       mean_Background = as.numeric(quantile(EIC_background$int,na.rm = T,probs = c(normal_background_quantile)))
@@ -2201,7 +2272,7 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
               Peak_start = Points_index[[c]]+1
               break
             }
-            if(Check[c]>=(Begin_int*0.7)){
+            if(Check[c]>=(Begin_int*intensity_factor_decrease_peaktop)){
               SAX_result_smooth[Points_index[c]] = "b"
               while(counter!=0){
                 SAX_result_smooth[Points_index[c-counter]] = "b"
@@ -2210,9 +2281,9 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
             } else {
               counter = counter+1
             }
-            if(counter==7){
+            if(counter==maximum_nr_of_stagnant_intensity_values_peaktop){
               Peak_start = Points_index[c-7]
-              if(c==7){
+              if(c==maximum_nr_of_stagnant_intensity_values_peaktop){
                 Peak_start = Peak
               }
               break
@@ -2248,7 +2319,7 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
               Peak_end = Points_index[[c]]-1
               break
             }
-            if(Check[c]>=(0.7*End_int)){
+            if(Check[c]>=(intensity_factor_decrease_peaktop*End_int)){
               SAX_result_smooth[Points_index[c]] = "b"
               SAX_result_smooth[Points_index[c-1]] = "b"
               while(counter!=0){
@@ -2258,9 +2329,9 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
             } else {
               counter = counter+1
             }
-            if(counter==7){
+            if(counter==maximum_nr_of_stagnant_intensity_values_peaktop){
               Peak_end = Points_index[c-7]
-              if(c==7){
+              if(c==maximum_nr_of_stagnant_intensity_values_peaktop){
                 Peak_end = Peak
               }
               break
@@ -2308,15 +2379,15 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
               } else {
                 counter = counter+1
                 if(is.na(threshold)){
-                  threshold = Points_int[c-1]*0.6
+                  threshold = Points_int[c-1]*intensity_factor_decrease_edges
                 }
                 Cutoff_l = Points_index[c-1]
               }
             }else{
-              if(Check[c]>(1.4*1.6666666*threshold)){
+              if(Check[c]>(intensity_factor_increase_edges*(1/intensity_factor_decrease_edges)*threshold)){
                 counter2 = counter2+1
               }
-              if(counter2>(0.25*density+1)){
+              if(counter2>(density_factor_increase_edges*density+1)){
                 threshold=0
               }
               if(Check[c]<threshold){
@@ -2332,8 +2403,8 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
               } else {
                 counter = counter+1
               }
-              if(counter==(5*density+1)){
-                Cutoff_l = Points_index[(c-((5*density+1)-1))]
+              if(counter==(density_factor_decrease_edges*density+1)){
+                Cutoff_l = Points_index[(c-((density_factor_decrease_edges*density+1)-1))]
                 break
               }
             }
@@ -2370,15 +2441,15 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
               } else {
                 counter = counter+1
                 if(is.na(threshold)){
-                  threshold = Points_int[c-1]*0.6
+                  threshold = Points_int[c-1]*intensity_factor_decrease_edges
                 }
                 Cutoff_r = Points_index[c-1]
               }
             }else{
-              if(Check[c]>(1.4*1.6666666*threshold)){
+              if(Check[c]>(intensity_factor_increase_edges*(1/intensity_factor_decrease_edges)*threshold)){
                 counter2 = counter2+1
               }
-              if(counter2>(0.25*density+1)){
+              if(counter2>(density_factor_increase_edges*density+1)){
                 threshold=0
               }
               if(Check[c]<threshold){
@@ -2394,8 +2465,8 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
               } else {
                 counter = counter+1
               }
-              if(counter==(5*density+1)){
-                Cutoff_r = Points_index[(c-((5*density+1)-1))]
+              if(counter==(density_factor_decrease_edges*density+1)){
+                Cutoff_r = Points_index[(c-((density_factor_decrease_edges*density+1)-1))]
                 break
               }
             }
@@ -2569,27 +2640,31 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
           
           Smoothie1 = Smoothie
           Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
-          #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 ???M
+          #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 M
           tcpl_fit = tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
                                    resp = Smoothie1$int,
                                    bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T))
           
-          RMSD_Ratio = Background/Baseline*100
+          RMSD_Ratio = plyr::round_any(Background/Baseline*100,1,ceiling)
           if(is.na(RMSD_Ratio)|is.nan(RMSD_Ratio)){
             RMSD_Ratio = 0
           }
           if(RMSD_Ratio<10){
-            Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
+            Ratio = ceiling(max(Peakl$int[Peakl$int>0],na.rm=T)/as.numeric(quantile(Peakl$int[Peakl$int>0],probs = c(0.01))))
           } else {
             #check for tailing and adjust to ceiling
-            center = match(max(Smoothie$int),Smoothie$int)
-            a = Smoothie$rt[center]-Smoothie$rt[1]
-            b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
-            Tailing = (a+b)/(2*a)
-            if(is.na(Tailing)|Tailing>1){
-              Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+            if(nrow(Peakl)>1){
+              center = match(max(Peakl$int[Peakl$int>0]),Peakl$int[Peakl$int>0])
+              a = Peakl$rt[center]-Peakl$rt[1]
+              b = Peakl$rt[nrow(Peakl)]-Peakl$rt[center]
+              Tailing = (a+b)/(2*a)
             } else {
-              Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+              Tailing = NA
+            }
+            if(is.na(Tailing)|Tailing>1){
+              Ratio = ceiling(max(Peakl$int[Peakl$int>0],na.rm=T)/as.numeric(quantile(Peakl$int[Peakl$int>0],probs = c(0.1))))
+            } else {
+              Ratio = (as.numeric(quantile(Peakl$int[Peakl$int>0],probs = c(0.8)))/as.numeric(quantile(Peakl$int[Peakl$int>0],probs = c(0.1))))
             }
           }
           
@@ -2615,7 +2690,30 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
           
           if(!is.na(Gainloss_AIC)){
             if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
-              Gainloss_AIC = NA
+              Smoothie = as.data.frame(ksmooth(Peakl$rt,Peakl$int,"normal",bandwidth = bandwidth*2))
+              colnames(Smoothie) = c("rt","int")
+              Smoothie1 = Smoothie
+              Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
+              
+              
+              tcpl_fit = tryCatch(tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
+                                                resp = Smoothie1$int,
+                                                bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T)),error=function(e){tcpl_fit=NA})
+              
+              if(!is.na(tcpl_fit)){
+                #Constant = no real peak, too flat
+                Constant_AIC = tcpl_fit$cnst_aic
+                #Gainloss = Increasing, then decreasing (in significant manner) -> likely peak
+                Gainloss_AIC = tcpl_fit$gnls_aic
+              } else {
+                Gainloss_AIC = NA
+              }
+              
+              if(!is.na(Gainloss_AIC)){
+                if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
+                  Gainloss_AIC = NA
+                }
+              }
             }
           }
           id = m:l
@@ -2648,27 +2746,31 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
       Peaklist$RT[Count] = median(Peaktop$rt)
       Smoothie1 = Smoothie
       Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
-      #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 ???M
+      #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 M
       tcpl_fit = tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
                                resp = Smoothie1$int,
                                bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T))
       
-      RMSD_Ratio = Background/Baseline*100
+      RMSD_Ratio = plyr::round_any(Background/Baseline*100,1,ceiling)
       if(is.na(RMSD_Ratio)|is.nan(RMSD_Ratio)){
         RMSD_Ratio = 0
       }
       if(RMSD_Ratio<10){
-        Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
+        Ratio = ceiling(max(Peakl$int[Peakl$int>0],na.rm=T)/as.numeric(quantile(Peakl$int[Peakl$int>0],probs = c(0.01))))
       } else {
         #check for tailing and adjust to ceiling
-        center = match(max(Smoothie$int),Smoothie$int)
-        a = Smoothie$rt[center]-Smoothie$rt[1]
-        b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
-        Tailing = (a+b)/(2*a)
-        if(is.na(Tailing)|Tailing>1){
-          Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+        if(nrow(Peakl)>1){
+          center = match(max(Peakl$int[Peakl$int>0]),Peakl$int[Peakl$int>0])
+          a = Peakl$rt[center]-Peakl$rt[1]
+          b = Peakl$rt[nrow(Peakl)]-Peakl$rt[center]
+          Tailing = (a+b)/(2*a)
         } else {
-          Ratio = (as.numeric(quantile(Smoothie$int,probs = c(0.8)))/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
+          Tailing = NA
+        }
+        if(is.na(Tailing)|Tailing>1){
+          Ratio = ceiling(max(Peakl$int[Peakl$int>0],na.rm=T)/as.numeric(quantile(Peakl$int[Peakl$int>0],probs = c(0.1))))
+        } else {
+          Ratio = (as.numeric(quantile(Peakl$int[Peakl$int>0],probs = c(0.8)))/as.numeric(quantile(Peakl$int[Peakl$int>0],probs = c(0.1))))
         }
        }
       
@@ -2695,7 +2797,30 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
       
       if(!is.na(Gainloss_AIC)){
         if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
-          Gainloss_AIC = NA
+          Smoothie = as.data.frame(ksmooth(Peakl$rt,Peakl$int,"normal",bandwidth = bandwidth*2))
+          colnames(Smoothie) = c("rt","int")
+          Smoothie1 = Smoothie
+          Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
+          
+          
+          tcpl_fit = tryCatch(tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
+                                            resp = Smoothie1$int,
+                                            bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T)),error=function(e){tcpl_fit=NA})
+          
+          if(!is.na(tcpl_fit)){
+            #Constant = no real peak, too flat
+            Constant_AIC = tcpl_fit$cnst_aic
+            #Gainloss = Increasing, then decreasing (in significant manner) -> likely peak
+            Gainloss_AIC = tcpl_fit$gnls_aic
+          } else {
+            Gainloss_AIC = NA
+          }
+          
+          if(!is.na(Gainloss_AIC)){
+            if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
+              Gainloss_AIC = NA
+            }
+          }
         }
       }
       
@@ -2833,7 +2958,7 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
 #' @param compounds_shift_corrected the list of targets with retention times corrected
 #' @param ppm_val allowed variability of target m/z in ppm
 #' @param method_time the time of the MS measurement
-#' @param is_centroidedrelevant for mzML files if scan is centroided or not
+#' @param is_centroided relevant for mzML files if scan is centroided or not
 #' @param gen.plots boolean if plots should be generated
 #' @param use.MINDIST boolean if MINDIST should be applied as peak selection criterion
 #' @param SAX_reference_table the SAX distance matrix used for calculating MINDIST
@@ -2843,6 +2968,12 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
 #' @param higher_background_quantile the quantile used to define background intensities from the background EIC if the chromatogram is showing quality flags 
 #' @param minimum_background_ratio the minimum ratio expected for a valid chromatogram of maximum intensity and the normal background quantile
 #' @param extended_baseline_factor a ratio applied to the baseline to define values which are considered as baseline
+#' @param maximum_nr_of_stagnant_intensity_values_peaktop the maximum number of intensities without significant decrease after which the start and end time of the peaktop is defined
+#' @param intensity_factor_decrease_peaktop the factor applied to the last peak-assigned intensity which needs to be undercut within the maximum number of intensities for a decrease to be considered significant in defining the peaktop
+#' @param intensity_factor_increase_edges the factor applied to the last peak-assigned intensity which if exceeded triggers a density-dependent counter to assign small increases to the peak while splitting peaks at the peak edges
+#' @param intensity_factor_decrease_edges the factor applied to the last peak-assigned intensity which needs to be undercut within the density-dependent maximum number of datapoints for a decrease to be considered significant in defining the peak edges
+#' @param density_factor_increase_edges the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having a constant increase or lack of decrease triggers a stop of the peak detection algorithm and defines the ends of the peak edges
+#' @param density_factor_decrease_edges the factor applied to the intensity density (datapoints within 0.1 minute) which if exceeded by having too many stagnant intensity values triggers a stop of the peak detection algorithm and defines the ends of the peak edges
 #' @param width_smoothing a numeric value needed to define the density of smoothing for the EIC
 #' @param width_factor_background the factor applied to the peak width to define a background window
 #' @param sample_search_window the search window in minutes added to both ends of the expected retention time used to screen for the peak of interest
@@ -2857,11 +2988,14 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
 #' @param minimum_confirming_peak_height the minimum height a confirming ion should exceed if expected
 #' @param max_MINDIST a value used as reference to interpret if the MINDIST of two SAX sequences is significantly different
 #' @param minimum_datapoints_per_sample_peak the minimal number of data points which should define a valid peak in target screening
+#' @param minimum_qualitative_threshold an intensity value which needs to be exceeded at minimum to at least qualitatively annotate a peak
+#' @param extend_l a numeric value indicating if the EIC should be extended to the left due to a cut-off peak whilst not identifying any other peaks 
+#' @param extend_r a numeric value indicating if the EIC should be extended to the right due to a cut-off peak whilst not identifying any other peaks 
 #' @param t index of the compound within Peaks
 #' @param j index of the file to be analyzed in files
 #' @param rep boolean if the function was already called before
 #' @export
-sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_list,Solvent_Blank_ID,IS_dependent_shift,Intensity_dependent_shift,Multiple,FullscanMS1,precursor_window,inner_intensity_ratio_multiple_peaks,Scan_filters,IS_Assignment,compounds_shift_corrected,RT_range,ppm_val,method_time,IS_deviation,gen.plots,use.MINDIST,SAX_reference_table,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,width_smoothing,width_factor_background,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,maximum_allowed_shift,maximum_allowed_shift_ratio,minimum_cutoff_intensity_factor,minimum_confirming_peak_height,max_MINDIST,minimum_datapoints_per_sample_peak,minimum_qualitative_threshold,t,j,rep){
+sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_list,Solvent_Blank_ID,IS_dependent_shift,Intensity_dependent_shift,Multiple,FullscanMS1,precursor_window,inner_intensity_ratio_multiple_peaks,Scan_filters,IS_Assignment,compounds_shift_corrected,RT_range,ppm_val,method_time,IS_deviation,gen.plots,use.MINDIST,SAX_reference_table,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,width_smoothing,width_factor_background,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,maximum_allowed_shift,maximum_allowed_shift_ratio,minimum_cutoff_intensity_factor,minimum_confirming_peak_height,max_MINDIST,minimum_datapoints_per_sample_peak,minimum_qualitative_threshold,extend_r=0,extend_l=0,t,j,rep){
   
   quan_peak = Peaks[t,]
   ID = as.numeric(substr(Peaks$Compound[t],1,4))
@@ -3094,15 +3228,41 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
     Background_window = width_factor_background*sample_search_window
   }
   
-  Filter_background =  EIC$rt > (Peaks$Start_RT[t]-Background_window-allowed_shift) & EIC$rt < (Peaks$End_RT[t]+Background_window+allowed_shift)
-  
-  width = abs(quan_peak$End_RT_level-quan_peak$Start_RT_level)
-  
-  Filter = EIC$rt < (Peaks$Start_RT_level[t]-sample_search_window-width-allowed_shift) | EIC$rt > (Peaks$End_RT_level[t]+sample_search_window+width+allowed_shift)
-  
+  if(extend_r==1){
+    Filter_background =  EIC$rt > (Peaks$Start_RT[t]-Background_window-allowed_shift) & EIC$rt < (Peaks$End_RT[t]+Background_window+RT_range+allowed_shift)
+    
+    width = abs(quan_peak$End_RT_level-quan_peak$Start_RT_level)
+    
+    Filter = EIC$rt < (Peaks$Start_RT_level[t]-sample_search_window-width-allowed_shift) | EIC$rt > (Peaks$End_RT_level[t]+sample_search_window+RT_range+width+allowed_shift)
+    
+  } else if(extend_l==1){
+    Filter_background =  EIC$rt > (Peaks$Start_RT[t]-Background_window-RT_range-allowed_shift) & EIC$rt < (Peaks$End_RT[t]+Background_window+allowed_shift)
+    
+    width = abs(quan_peak$End_RT_level-quan_peak$Start_RT_level)
+    
+    Filter = EIC$rt < (Peaks$Start_RT_level[t]-RT_range-sample_search_window-width-allowed_shift) | EIC$rt > (Peaks$End_RT_level[t]+sample_search_window+RT_range+width+allowed_shift)
+    
+  } else if (rep){
+    Filter_background =  EIC$rt > (Peaks$Start_RT[t]-Background_window-RT_range-allowed_shift) & EIC$rt < (Peaks$End_RT[t]+Background_window+allowed_shift)
+    
+    width = abs(quan_peak$End_RT_level-quan_peak$Start_RT_level)
+    
+    Filter = EIC$rt < (Peaks$Start_RT_level[t]-RT_range-sample_search_window-width-allowed_shift) | EIC$rt > (Peaks$End_RT_level[t]+RT_range+sample_search_window+width+allowed_shift)
+    
+  } else {
+    Filter_background =  EIC$rt > (Peaks$Start_RT[t]-Background_window-allowed_shift) & EIC$rt < (Peaks$End_RT[t]+Background_window+allowed_shift)
+    
+    width = abs(quan_peak$End_RT_level-quan_peak$Start_RT_level)
+    
+    Filter = EIC$rt < (Peaks$Start_RT_level[t]-sample_search_window-width-allowed_shift) | EIC$rt > (Peaks$End_RT_level[t]+sample_search_window+width+allowed_shift)
+    
+  }
+
   bad_chroma = F
   
   EIC_background = dplyr::filter(EIC,Filter_background==T)
+  EIC_background = EIC_background[EIC_background$rt<quan_peak$Start_RT|EIC_background$rt>quan_peak$End_RT,]
+  
   EIC = dplyr::filter(EIC,Filter==F)
   if(length(EIC$rt)<3|length(EIC_background$rt)<3){
     bad_chroma = T
@@ -3337,7 +3497,7 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
               Peak_start = Points_index[[c]]+1
               break
             }
-            if(Check[c]>=(Begin_int*0.7)){
+            if(Check[c]>=(Begin_int*intensity_factor_decrease_peaktop)){
               SAX_result_smooth[Points_index[c]] = "b"
               while(counter!=0){
                 SAX_result_smooth[Points_index[c-counter]] = "b"
@@ -3346,9 +3506,9 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
             } else {
               counter = counter+1
             }
-            if(counter==7){
+            if(counter==maximum_nr_of_stagnant_intensity_values_peaktop){
               Peak_start = Points_index[c-7]
-              if(c==7){
+              if(c==maximum_nr_of_stagnant_intensity_values_peaktop){
                 Peak_start = Peak
               }
               break
@@ -3384,7 +3544,7 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
               Peak_end = Points_index[[c]]-1
               break
             }
-            if(Check[c]>=(0.7*End_int)){
+            if(Check[c]>=(intensity_factor_decrease_peaktop*End_int)){
               SAX_result_smooth[Points_index[c]] = "b"
               SAX_result_smooth[Points_index[c-1]] = "b"
               while(counter!=0){
@@ -3394,9 +3554,9 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
             } else {
               counter = counter+1
             }
-            if(counter==7){
+            if(counter==maximum_nr_of_stagnant_intensity_values_peaktop){
               Peak_end = Points_index[c-7]
-              if(c==7){
+              if(c==maximum_nr_of_stagnant_intensity_values_peaktop){
                 Peak_end = Peak
               }
               break
@@ -3444,15 +3604,15 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
               } else {
                 counter = counter+1
                 if(is.na(threshold)){
-                  threshold = Points_int[c-1]*0.6
+                  threshold = Points_int[c-1]*intensity_factor_decrease_edges
                 }
                 Cutoff_l = Points_index[c-1]
               }
             }else{
-              if(Check[c]>(1.4*1.6666666*threshold)){
+              if(Check[c]>(intensity_factor_increase_edges*(1/intensity_factor_decrease_edges)*threshold)){
                 counter2 = counter2+1
               }
-              if(counter2>(0.25*density+1)){
+              if(counter2>(density_factor_increase_edges*density+1)){
                 threshold=0
               }
               if(Check[c]<threshold){
@@ -3468,8 +3628,8 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
               } else {
                 counter = counter+1
               }
-              if(counter==(5*density+1)){
-                Cutoff_l = Points_index[(c-((5*density+1)-1))]
+              if(counter==(density_factor_decrease_edges*density+1)){
+                Cutoff_l = Points_index[(c-((density_factor_decrease_edges*density+1)-1))]
                 break
               }
             }
@@ -3506,15 +3666,15 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
               } else {
                 counter = counter+1
                 if(is.na(threshold)){
-                  threshold = Points_int[c-1]*0.6
+                  threshold = Points_int[c-1]*intensity_factor_decrease_edges
                 }
                 Cutoff_r = Points_index[c-1]
               }
             }else{
-              if(Check[c]>(1.4*1.6666666*threshold)){
+              if(Check[c]>(intensity_factor_increase_edges*(1/intensity_factor_decrease_edges)*threshold)){
                 counter2 = counter2+1
               }
-              if(counter2>(0.25*density+1)){
+              if(counter2>(density_factor_increase_edges*density+1)){
                 threshold=0
               }
               if(Check[c]<threshold){
@@ -3531,8 +3691,8 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                 counter = counter+1
               }
               
-              if(counter==(5*density+1)){
-                Cutoff_r = Points_index[(c-((5*density+1)-1))]
+              if(counter==(density_factor_decrease_edges*density+1)){
+                Cutoff_r = Points_index[(c-((density_factor_decrease_edges*density+1)-1))]
                 break
               }
             }
@@ -3801,12 +3961,12 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
           
           Smoothie1 = Smoothie
           Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
-          #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 ???M
+          #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 M
           tcpl_fit = tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
                                    resp = Smoothie1$int,
                                    bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T))
           
-          RMSD_Ratio = Background/Baseline*100
+          RMSD_Ratio = plyr::round_any(Background/Baseline*100,1,ceiling)
           if(is.na(RMSD_Ratio)|is.nan(RMSD_Ratio)){
             RMSD_Ratio = 0
           }
@@ -3814,10 +3974,15 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
             Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
           } else {
             #check for tailing and adjust to ceiling
-            center = match(max(Smoothie$int),Smoothie$int)
-            a = Smoothie$rt[center]-Smoothie$rt[1]
-            b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
-            Tailing = (a+b)/(2*a)
+            if(nrow(Smoothie)>1){
+              center = match(max(Smoothie$int),Smoothie$int)
+              a = Smoothie$rt[center]-Smoothie$rt[1]
+              b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+              Tailing = (a+b)/(2*a)
+            } else {
+              Tailing = NA
+            }
+            
             if(is.na(Tailing)|Tailing>1){
               Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
             } else {
@@ -3850,7 +4015,30 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
           
           if(!is.na(Gainloss_AIC)){
             if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
-              Gainloss_AIC = NA
+              Smoothie = as.data.frame(ksmooth(Peakl$rt,Peakl$int,"normal",bandwidth = bandwidth*2))
+              colnames(Smoothie) = c("rt","int")
+              Smoothie1 = Smoothie
+              Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
+              
+              
+              tcpl_fit = tryCatch(tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
+                                                resp = Smoothie1$int,
+                                                bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T)),error=function(e){tcpl_fit=NA})
+              
+              if(!is.na(tcpl_fit)){
+                #Constant = no real peak, too flat
+                Constant_AIC = tcpl_fit$cnst_aic
+                #Gainloss = Increasing, then decreasing (in significant manner) -> likely peak
+                Gainloss_AIC = tcpl_fit$gnls_aic
+              } else {
+                Gainloss_AIC = NA
+              }
+              
+              if(!is.na(Gainloss_AIC)){
+                if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
+                  Gainloss_AIC = NA
+                }
+              }
             }
           }
           #If gnls_aic = NA or is bigger than Constant_AIC, there is likely NO valid peak
@@ -3886,7 +4074,7 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
       
       Smoothie1 = Smoothie
       Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
-      #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 ???M
+      #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 M
       tcpl_fit = tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
                                resp = Smoothie1$int,
                                bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T))
@@ -3899,10 +4087,15 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
         Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
       } else {
         #check for tailing and adjust to ceiling
-        center = match(max(Smoothie$int),Smoothie$int)
-        a = Smoothie$rt[center]-Smoothie$rt[1]
-        b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
-        Tailing = (a+b)/(2*a)
+        if(nrow(Smoothie)>1){
+          center = match(max(Smoothie$int),Smoothie$int)
+          a = Smoothie$rt[center]-Smoothie$rt[1]
+          b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+          Tailing = (a+b)/(2*a)
+        } else {
+          Tailing = NA
+        }
+
         if(is.na(Tailing)|Tailing>1){
           Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
         } else {
@@ -3934,7 +4127,30 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
       
       if(!is.na(Gainloss_AIC)){
         if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
-          Gainloss_AIC = NA
+          Smoothie = as.data.frame(ksmooth(Peakl$rt,Peakl$int,"normal",bandwidth = bandwidth*2))
+          colnames(Smoothie) = c("rt","int")
+          Smoothie1 = Smoothie
+          Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
+          
+          
+          tcpl_fit = tryCatch(tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
+                                            resp = Smoothie1$int,
+                                            bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T)),error=function(e){tcpl_fit=NA})
+          
+          if(!is.na(tcpl_fit)){
+            #Constant = no real peak, too flat
+            Constant_AIC = tcpl_fit$cnst_aic
+            #Gainloss = Increasing, then decreasing (in significant manner) -> likely peak
+            Gainloss_AIC = tcpl_fit$gnls_aic
+          } else {
+            Gainloss_AIC = NA
+          }
+          
+          if(!is.na(Gainloss_AIC)){
+            if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
+              Gainloss_AIC = NA
+            }
+          }
         }
       }
       #If gnls_aic = NA or is bigger than Constant_AIC, there is likely NO valid peak
@@ -4026,7 +4242,7 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
       sample_peak = Peaklist_final[quani,]
       if(length(sample_peak$RT[!is.na(sample_peak$RT)])>0){
         #########################################################
-        #Search for confirming ions - but only ones with expected
+        #Search for confirming ions
         #########################################################
         qual_peaks = Peaks_list[[t]][Peaks_list[[t]]$type!="quan",]
         if(length(qual_peaks$Compound)>0){
@@ -4327,7 +4543,7 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                         Peak_start = Points_index[[c]]+1
                         break
                       }
-                      if(Check[c]>=(Begin_int*0.7)){
+                      if(Check[c]>=(Begin_int*intensity_factor_decrease_peaktop)){
                         SAX_result_smooth[Points_index[c]] = "b"
                         while(counter!=0){
                           SAX_result_smooth[Points_index[c-counter]] = "b"
@@ -4336,9 +4552,9 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                       } else {
                         counter = counter+1
                       }
-                      if(counter==7){
+                      if(counter==maximum_nr_of_stagnant_intensity_values_peaktop){
                         Peak_start = Points_index[c-7]
-                        if(c==7){
+                        if(c==maximum_nr_of_stagnant_intensity_values_peaktop){
                           Peak_start = Peak
                         }
                         break
@@ -4374,7 +4590,7 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                         Peak_end = Points_index[[c]]-1
                         break
                       }
-                      if(Check[c]>=(0.7*End_int)){
+                      if(Check[c]>=(intensity_factor_decrease_peaktop*End_int)){
                         SAX_result_smooth[Points_index[c]] = "b"
                         SAX_result_smooth[Points_index[c-1]] = "b"
                         while(counter!=0){
@@ -4384,9 +4600,9 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                       } else {
                         counter = counter+1
                       }
-                      if(counter==7){
+                      if(counter==maximum_nr_of_stagnant_intensity_values_peaktop){
                         Peak_end = Points_index[c-7]
-                        if(c==7){
+                        if(c==maximum_nr_of_stagnant_intensity_values_peaktop){
                           Peak_end = Peak
                         }
                         break
@@ -4433,14 +4649,14 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                           Cutoff_l = Points_index[c]
                         } else {
                           counter = counter+1
-                          threshold = Points_int[c-1]*0.6
+                          threshold = Points_int[c-1]*intensity_factor_decrease_edges
                           Cutoff_l = Points_index[c-1]
                         }
                       }else{
-                        if(Check[c]>(1.4*1.6666666*threshold)){
+                        if(Check[c]>(intensity_factor_increase_edges*(1/intensity_factor_decrease_edges)*threshold)){
                           counter2 = counter2+1
                         }
-                        if(counter2>(0.25*density+1)){
+                        if(counter2>(density_factor_increase_edges*density+1)){
                           threshold=0
                         }
                         if(Check[c]<threshold){
@@ -4456,8 +4672,8 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                         } else {
                           counter = counter+1
                         }
-                        if(counter==(5*density+1)){
-                          Cutoff_l = Points_index[(c-((5*density+1)-1))]
+                        if(counter==(density_factor_decrease_edges*density+1)){
+                          Cutoff_l = Points_index[(c-((density_factor_decrease_edges*density+1)-1))]
                           break
                         }
                       }
@@ -4494,15 +4710,15 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                         } else {
                           counter = counter+1
                           if(is.na(threshold)){
-                            threshold = Points_int[c-1]*0.6
+                            threshold = Points_int[c-1]*intensity_factor_decrease_edges
                           }
                           Cutoff_r = Points_index[c-1]
                         }
                       }else{
-                        if(Check[c]>(1.4*1.6666666*threshold)){
+                        if(Check[c]>(intensity_factor_increase_edges*(1/intensity_factor_decrease_edges)*threshold)){
                           counter2 = counter2+1
                         }
-                        if(counter2>(0.25*density+1)){
+                        if(counter2>(density_factor_increase_edges*density+1)){
                           threshold=0
                         }
                         if(Check[c]<threshold){
@@ -4518,8 +4734,8 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                         } else {
                           counter = counter+1
                         }
-                        if(counter==(5*density+1)){
-                          Cutoff_r = Points_index[(c-((5*density+1)-1))]
+                        if(counter==(density_factor_decrease_edges*density+1)){
+                          Cutoff_r = Points_index[(c-((density_factor_decrease_edges*density+1)-1))]
                           break
                         }
                       }
@@ -4791,12 +5007,12 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                     Peaklist$RT[Count] = median(Peaktop$rt)
                     Smoothie1 = Smoothie
                     Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
-                    #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 ???M
+                    #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 M
                     tcpl_fit = tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
                                              resp = Smoothie1$int,
                                              bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T))
                     
-                    RMSD_Ratio = Background_qual/Baseline_qual*100
+                    RMSD_Ratio = plyr::round_any(Background/Baseline*100,1,ceiling)
                     if(is.na(RMSD_Ratio)|is.nan(RMSD_Ratio)){
                       RMSD_Ratio = 0
                     }
@@ -4804,10 +5020,15 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                       Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
                     } else {
                       #check for tailing and adjust to ceiling
-                      center = match(max(Smoothie$int),Smoothie$int)
-                      a = Smoothie$rt[center]-Smoothie$rt[1]
-                      b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
-                      Tailing = (a+b)/(2*a)
+                      if(nrow(Smoothie)>1){
+                        center = match(max(Smoothie$int),Smoothie$int)
+                        a = Smoothie$rt[center]-Smoothie$rt[1]
+                        b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+                        Tailing = (a+b)/(2*a)
+                      } else {
+                        Tailing = NA
+                      }
+                      
                       if(is.na(Tailing)|Tailing>1){
                         Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
                       } else {
@@ -4839,7 +5060,29 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                     
                     if(!is.na(Gainloss_AIC)){
                       if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
-                        Gainloss_AIC = NA
+                        Smoothie = as.data.frame(ksmooth(Peakl$rt,Peakl$int,"normal",bandwidth = bandwidth*2))
+                        colnames(Smoothie) = c("rt","int")
+                        Smoothie1 = Smoothie
+                        Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
+                        
+                        
+                        tcpl_fit = tryCatch(tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
+                                                          resp = Smoothie1$int,
+                                                          bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T)),error=function(e){tcpl_fit=NA})
+                        
+                        if(!is.na(tcpl_fit)){
+                          #Constant = no real peak, too flat
+                          Constant_AIC = tcpl_fit$cnst_aic
+                          #Gainloss = Increasing, then decreasing (in significant manner) -> likely peak
+                          Gainloss_AIC = tcpl_fit$gnls_aic
+                        } else {
+                          Gainloss_AIC = NA
+                        }
+                        if(!is.na(Gainloss_AIC)){
+                          if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
+                            Gainloss_AIC = NA
+                          }
+                        }
                       }
                     }
                     id = m:l
@@ -4873,12 +5116,12 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                 
                 Smoothie1 = Smoothie
                 Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
-                #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 ???M
+                #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 M
                 tcpl_fit = tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
                                          resp = Smoothie1$int,
                                          bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T))
                 
-                RMSD_Ratio = Background_qual/Baseline_qual*100
+                RMSD_Ratio = plyr::round_any(Background/Baseline*100,1,ceiling)
                 if(is.na(RMSD_Ratio)|is.nan(RMSD_Ratio)){
                   RMSD_Ratio = 0
                 }
@@ -4886,10 +5129,15 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                   Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.01))))
                 } else {
                   #check for tailing and adjust to ceiling
-                  center = match(max(Smoothie$int),Smoothie$int)
-                  a = Smoothie$rt[center]-Smoothie$rt[1]
-                  b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
-                  Tailing = (a+b)/(2*a)
+                  if(nrow(Smoothie)>1){
+                    center = match(max(Smoothie$int),Smoothie$int)
+                    a = Smoothie$rt[center]-Smoothie$rt[1]
+                    b = Smoothie$rt[nrow(Smoothie)]-Smoothie$rt[center]
+                    Tailing = (a+b)/(2*a)
+                  } else {
+                    Tailing = NA
+                  }
+                  
                   if(is.na(Tailing)|Tailing>1){
                     Ratio = ceiling(max(Smoothie$int,na.rm=T)/as.numeric(quantile(Smoothie$int,probs = c(0.1))))
                   } else {
@@ -4920,7 +5168,30 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                 Gainloss_AIC = tcpl_fit$gnls_aic
                 if(!is.na(Gainloss_AIC)){
                   if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
-                    Gainloss_AIC = NA
+                    Smoothie = as.data.frame(ksmooth(Peakl$rt,Peakl$int,"normal",bandwidth = bandwidth*2))
+                    colnames(Smoothie) = c("rt","int")
+                    Smoothie1 = Smoothie
+                    Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
+                    
+                    
+                    tcpl_fit = tryCatch(tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
+                                             resp = Smoothie1$int,
+                                             bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T)),error=function(e){tcpl_fit=NA})
+                    
+                    if(!is.na(tcpl_fit)){
+                      #Constant = no real peak, too flat
+                      Constant_AIC = tcpl_fit$cnst_aic
+                      #Gainloss = Increasing, then decreasing (in significant manner) -> likely peak
+                      Gainloss_AIC = tcpl_fit$gnls_aic
+                    } else {
+                      Gainloss_AIC = NA
+                    }
+
+                    if(!is.na(Gainloss_AIC)){
+                      if(abs(Gainloss_AIC-Constant_AIC)<5|Gainloss_AIC>Constant_AIC){
+                        Gainloss_AIC = NA
+                      }
+                    }
                   }
                 }
                 #If gnls_aic = NA or is bigger than Constant_AIC, there is likely NO valid peak
@@ -5013,7 +5284,7 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
                   quali_peak = Peaklist_final_qual
                 }
               } else {
-                diff = abs(Peaklist_final_qual$RT-Peaks$RT[t])
+                diff = abs(Peaklist_final_qual$RT-sample_peak$RT)
                 Peaklist_final_qual = Peaklist_final_qual[match(min(diff),diff),]
                 quali_peak = Peaklist_final_qual
               }
@@ -5038,7 +5309,20 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
               }
             }
             
-            if(length(quali_peak$RT)==0&expected==T){
+            if(3==5){
+              expected_ratio = qual_peaks$ratio[q]
+              actual_ratio = quali_peak$Height/sample_peak$Height
+              ratio_too_different = (expected_ratio/actual_ratio)<0.1|(expected_ratio/actual_ratio)>10
+              if(length(ratio_too_different)==0){
+                ratio_too_different = T
+              } else if(is.na(ratio_too_different)){
+                ratio_too_different = T
+              }
+            }
+            ratio_too_different = F
+
+            
+            if(length(quali_peak$RT)==0&expected==T&ratio_too_different){
               Peaklist_final$confirmed[quani] = -Inf
               break
             }
@@ -5171,6 +5455,26 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
         }
       }
     } else {
+      if(perfect_match_confirmed){
+        shift_corrected_times = Peaks$RT[t]+Peaklist_final$intensity_shift+IS_dependent_shift_compound
+        diff = abs(Peaklist_final$RT-Peaks$RT[t])
+        diff.grid = expand.grid(diff,diff)
+        diff.grid$diff = abs(diff.grid$Var1-diff.grid$Var2)
+        diff.grid = diff.grid[diff.grid$diff!=0,]
+        differences = unique(diff.grid$diff)
+        nearest_peaks = min(diff)==diff.grid$Var1[diff.grid$diff==min(diff.grid$diff)]
+        if(min(differences)<0.05&T%in%nearest_peaks&use.MINDIST==T){
+          minidist = rep(NA,nrow(Peaklist_final))
+          for(mi in 1:length(minidist)){
+            minidist[mi] = SAX_mindist(Peaklist_final$Sequence[mi],Peaks$Sequence[t],Peaklist_final$Nr_of_Points[mi],SAX_reference_table)
+          }
+          Peaklist_final = Peaklist_final[match(min(minidist),minidist),]
+          sample_peak = Peaklist_final
+        } else {
+          Peaklist_final = Peaklist_final[match(min(diff),diff),]
+          sample_peak = Peaklist_final
+        }
+      }
       shift_corrected_times = Peaks$RT[t]+Peaklist_final$intensity_shift+IS_dependent_shift_compound
       diff = abs(Peaklist_final$RT-shift_corrected_times)
       diff.grid = expand.grid(diff,diff)
@@ -5255,7 +5559,18 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
     tolerance = Peaks$RT_tol[t]
   }
   #You have to allow all peaks to shift around the allowed shift, otherwise if the shift was calculated wrong (i.e. IS shifts, but analyte not) you would virtually add errors
-  within_time = !(abs(sample_peak$RT-shift_corrected_time)>(allowed_shift+Peaks$RT_tol[t])|abs(sample_peak$Start_RT_level-shift_corrected_Start_level)>(Peaks$Start_var[t]+allowed_shift)|abs(sample_peak$End_RT_level-shift_corrected_End_level)>(Peaks$End_var[t]+allowed_shift))
+  if(extend_r==1){
+    allowed_shift = allowed_shift+RT_range/2
+    within_time = !(abs(sample_peak$RT-Peaks$RT[t])>(allowed_shift+Peaks$RT_tol[t])|abs(sample_peak$Start_RT_level-Peaks$Start_RT_level[t])>(Peaks$Start_var[t]+allowed_shift)|abs(sample_peak$End_RT_level-Peaks$End_RT_level[t])>(Peaks$End_var[t]+allowed_shift))
+    
+  } else if(extend_l==1){
+    allowed_shift = allowed_shift+RT_range/2
+    within_time = !(abs(sample_peak$RT-Peaks$RT[t])>(allowed_shift+Peaks$RT_tol[t])|abs(sample_peak$Start_RT_level-Peaks$Start_RT_level[t])>(Peaks$Start_var[t]+allowed_shift)|abs(sample_peak$End_RT_level-Peaks$End_RT_level[t])>(Peaks$End_var[t]+allowed_shift))
+    
+  } else {
+    within_time = !(abs(sample_peak$RT-Peaks$RT[t])>(allowed_shift+Peaks$RT_tol[t])|abs(sample_peak$Start_RT_level-Peaks$Start_RT_level[t])>(Peaks$Start_var[t]+allowed_shift)|abs(sample_peak$End_RT_level-Peaks$End_RT_level[t])>(Peaks$End_var[t]+allowed_shift))
+    
+  }
   if(is.na(within_time)){
     within_time = F
   }
@@ -5273,10 +5588,92 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
   if(within_time&!above_LOQ&sample_peak$Height/min(EIC$int[EIC$int!=0])>10&sample_search_window!=(width*width_factor_background)){
     left_baseline = median(EIC$int[EIC$rt<=quantile(EIC$rt,probs=c(0.1))],na.rm = T)<=Baseline*extended_baseline_factor
     right_baseline = median(EIC$int[EIC$rt>=quantile(EIC$rt,probs=c(0.9))],na.rm = T)<=Baseline*extended_baseline_factor
-    if(!(left_baseline&right_baseline)&(left_baseline|right_baseline)){
-      sample_analysis(sample_path,results_path,sample,files,Peaks,Peaks_list,Solvent_Blank_ID,IS_dependent_shift,Intensity_dependent_shift,Multiple,FullscanMS1,precursor_window,inner_intensity_ratio_multiple_peaks,Scan_filters,IS_Assignment,compounds_shift_corrected,RT_range,ppm_val,method_time,IS_deviation,gen.plots,use.MINDIST,SAX_reference_table,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,width_smoothing,width_factor_background=width_factor_background*2,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,maximum_allowed_shift,maximum_allowed_shift_ratio,minimum_cutoff_intensity_factor,minimum_confirming_peak_height,max_MINDIST,minimum_datapoints_per_sample_peak,minimum_qualitative_threshold,t,j,rep=T)
+    if(!(left_baseline&right_baseline)&(left_baseline|right_baseline)&!rep){
+      sample_analysis(sample_path,results_path,sample,files,Peaks,Peaks_list,Solvent_Blank_ID,IS_dependent_shift,Intensity_dependent_shift,Multiple,FullscanMS1,precursor_window,inner_intensity_ratio_multiple_peaks,Scan_filters,IS_Assignment,compounds_shift_corrected,RT_range,ppm_val,method_time,IS_deviation,gen.plots,use.MINDIST,SAX_reference_table,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,width_smoothing,width_factor_background=width_factor_background*2,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,maximum_allowed_shift,maximum_allowed_shift_ratio,minimum_cutoff_intensity_factor,minimum_confirming_peak_height,max_MINDIST,minimum_datapoints_per_sample_peak,minimum_qualitative_threshold,extend_r,extend_l,t,j,rep=T)
     }
   }
+  
+  #Check if peak is nearby but shifted
+  
+  if(nrow(sample_peak[!is.na(sample_peak$RT),])==0&(extend_l<1|extend_r<1)&!bad_chroma){
+    Smoothie1 = data.frame("rt"=rev(EIC$rt[1:(nrow(EIC)/2)]),"int"=rev(EIC$int[1:(nrow(EIC)/2)]))
+    Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
+    #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 M
+    tcpl_fit = tryCatch(tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
+                             resp = Smoothie1$int,
+                             bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T)),error=function(e){tcpl_fit=NA})
+    
+    if(!is.na(tcpl_fit)){
+      G0 = tcpl_fit$cnst_aic
+      G1 = tcpl_fit$hill_aic
+      G2 = tcpl_fit$gnls_aic
+      
+      if(!is.na(G1)){
+        if(G0-G1>5){
+          extend_l = extend_l+1
+        } else if(!is.na(G2)){
+          if(G0-G2>5){
+            extend_l = extend_l+1
+          } else {
+            extend_l = 2
+          }
+        } else {
+          extend_l = 2
+        }
+      } else if(!is.na(G2)){
+        if(G0-G2>5){
+          extend_l = extend_l+1
+        } else {
+          extend_l = 2
+        }
+      } else {
+        extend_l = 2
+      }
+    } else {
+      extend_l = 2
+    }
+
+    
+    Smoothie1 = data.frame("rt"=EIC$rt[(nrow(EIC)/2):nrow(EIC)],"int"=EIC$int[(nrow(EIC)/2):nrow(EIC)])
+    Smoothie1$int = ((Smoothie1$int - min(Smoothie1$int,na.rm=T)) / (max(Smoothie1$int,na.rm=T) - min(Smoothie1$int,na.rm=T))) * 100
+    #tcpl needs 0 - 100 % and a log-logistic range; ToxCast used 0 - 100 M
+    tcpl_fit = tryCatch(tcpl::tcplFit(logc = seq(-1, 2, length.out = nrow(Smoothie1)),
+                             resp = Smoothie1$int,
+                             bmad = quantile(Smoothie1$int,probs = c(0.1),na.rm = T)),error=function(e){tcpl_fit=NA})
+    if(!is.na(tcpl_fit)){
+      G0 = tcpl_fit$cnst_aic
+      G1 = tcpl_fit$hill_aic
+      G2 = tcpl_fit$gnls_aic
+      
+      if(!is.na(G1)){
+        if(G0-G1>5){
+          extend_r = extend_r+1
+        } else if(!is.na(G2)){
+          if(G0-G2>5){
+            extend_r = extend_r+1
+          } else {
+            extend_r = 2
+          }
+        } else {
+          extend_r = 2
+        }
+      } else if(!is.na(G2)){
+        if(G0-G2>5){
+          extend_r = extend_r+1
+        } else {
+          extend_r = 2
+        }
+      } else {
+        extend_r = 2
+      }
+    } else {
+      extend_r = 2
+    }
+
+    return(sample_analysis(sample_path,results_path,sample,files,Peaks,Peaks_list,Solvent_Blank_ID,IS_dependent_shift,Intensity_dependent_shift,Multiple,FullscanMS1,precursor_window,inner_intensity_ratio_multiple_peaks,Scan_filters,IS_Assignment,compounds_shift_corrected,RT_range,ppm_val,method_time,IS_deviation,gen.plots,use.MINDIST,SAX_reference_table,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,width_smoothing,width_factor_background=width_factor_background*2,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,maximum_allowed_shift,maximum_allowed_shift_ratio,minimum_cutoff_intensity_factor,minimum_confirming_peak_height,max_MINDIST,minimum_datapoints_per_sample_peak,minimum_qualitative_threshold,extend_r=extend_r,extend_l=extend_l,t,j,rep=T))
+    
+  }
+  
   
   #Check if the shift of the Peak is too high compared to standards
   if(nrow(sample_peak[!is.na(sample_peak$RT),])>0){
@@ -5818,7 +6215,7 @@ calculate_system_dependent_shift_and_RT_range = function(sample,set.env=F,minimu
                         .packages = c("seewave","dplyr","rawrr","foreach","doSNOW","zoo","parallel","RaMS"),
                         .options.snow=opts,
                         .combine = "c",
-                        .export=c("References","sample_path","IS","FullscanMS1","ppm_val","cores","functions",names(functions),"method_time","alphabet_size","zigzag_trigger_threshold","extended_baseline_factor","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","minimum_peak_area","maximum_peak_width")) %dopar% {
+                        .export=c("References","sample_path","IS","FullscanMS1","ppm_val","cores","functions",names(functions),"method_time","alphabet_size","zigzag_trigger_threshold","extended_baseline_factor","maximum_nr_of_stagnant_intensity_values_peaktop","intensity_factor_decrease_peaktop","intensity_factor_increase_edges","intensity_factor_decrease_edges","density_factor_increase_edges","density_factor_decrease_edges","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","minimum_peak_area","maximum_peak_width")) %dopar% {
                           
                           assign(paste0("cl",q,collapse = ""),makeCluster((cores-length(References))/length(References)))
                           
@@ -5828,8 +6225,8 @@ calculate_system_dependent_shift_and_RT_range = function(sample,set.env=F,minimu
                                               .packages = c("seewave","dplyr","zoo","rawrr","RaMS"),
                                               .options.snow=opts,
                                               .combine = "c",
-                                              .export=c("References","sample_path","IS","FullscanMS1","ppm_val","functions",names(functions),"q","method_time","alphabet_size","zigzag_trigger_threshold","extended_baseline_factor","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","minimum_peak_area","maximum_peak_width")) %dopar% {
-                                                calc_shift(sample_path,References,IS,ppm_val,method_time,FullscanMS1,alphabet_size,zigzag_trigger_threshold,extended_baseline_factor,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,minimum_peak_area,maximum_peak_width,i,q)
+                                              .export=c("References","sample_path","IS","FullscanMS1","ppm_val","functions",names(functions),"q","method_time","alphabet_size","zigzag_trigger_threshold","extended_baseline_factor","maximum_nr_of_stagnant_intensity_values_peaktop","intensity_factor_decrease_peaktop","intensity_factor_increase_edges","intensity_factor_decrease_edges","density_factor_increase_edges","density_factor_decrease_edges","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","minimum_peak_area","maximum_peak_width")) %dopar% {
+                                                calc_shift(sample_path,References,IS,ppm_val,method_time,FullscanMS1,alphabet_size,zigzag_trigger_threshold,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,minimum_peak_area,maximum_peak_width,i,q)
                                               }
                           
                           stopCluster(get(paste0("cl",q,collapse = "")))
@@ -5924,8 +6321,8 @@ calculate_system_dependent_shift_and_RT_range_woParallel = function(sample,set.e
                                  .packages = c("seewave","dplyr","doSNOW","parallel","zoo","rawrr","stats","RaMS"),
                                  .options.snow=opts,
                                  .combine = "c",
-                                 .export=c("References","sample_path","IS","FullscanMS1","ppm_val","functions",names(functions),"q","method_time","alphabet_size","zigzag_trigger_threshold","extended_baseline_factor","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","minimum_peak_area","maximum_peak_width")) %dopar% {
-                                   calc_shift(sample_path,References,IS,ppm_val,method_time,FullscanMS1,alphabet_size,zigzag_trigger_threshold,extended_baseline_factor,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,minimum_peak_area,maximum_peak_width,i,q)
+                                 .export=c("References","sample_path","IS","FullscanMS1","ppm_val","functions",names(functions),"q","method_time","alphabet_size","zigzag_trigger_threshold","extended_baseline_factor","maximum_nr_of_stagnant_intensity_values_peaktop","intensity_factor_decrease_peaktop","intensity_factor_increase_edges","intensity_factor_decrease_edges","density_factor_increase_edges","density_factor_decrease_edges","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","minimum_peak_area","maximum_peak_width")) %dopar% {
+                                   calc_shift(sample_path,References,IS,ppm_val,method_time,FullscanMS1,alphabet_size,zigzag_trigger_threshold,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,minimum_peak_area,maximum_peak_width,i,q)
                                  }
   },error = errors)
   
@@ -5947,8 +6344,8 @@ calculate_system_dependent_shift_and_RT_range_woParallel = function(sample,set.e
                                        .packages = c("seewave","dplyr","doSNOW","parallel","zoo","rawrr","RaMS"),
                                        .options.snow=opts,
                                        .combine = "c",
-                                       .export=c("References","sample_path","IS","FullscanMS1","ppm_val","functions",names(functions),"q","method_time","alphabet_size","zigzag_trigger_threshold","extended_baseline_factor","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","minimum_peak_area","maximum_peak_width")) %dopar% {
-                                         calc_shift(sample_path,References,IS,ppm_val,method_time,FullscanMS1,alphabet_size,zigzag_trigger_threshold,extended_baseline_factor,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,minimum_peak_area,maximum_peak_width,i,q)
+                                       .export=c("References","sample_path","IS","FullscanMS1","ppm_val","functions",names(functions),"q","method_time","alphabet_size","zigzag_trigger_threshold","extended_baseline_factor","maximum_nr_of_stagnant_intensity_values_peaktop","intensity_factor_decrease_peaktop","intensity_factor_increase_edges","intensity_factor_decrease_edges","density_factor_increase_edges","density_factor_decrease_edges","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","minimum_peak_area","maximum_peak_width")) %dopar% {
+                                         calc_shift(sample_path,References,IS,ppm_val,method_time,FullscanMS1,alphabet_size,zigzag_trigger_threshold,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,minimum_peak_area,maximum_peak_width,i,q)
                                        }
       },error=errors)
       
@@ -6015,11 +6412,12 @@ calculate_system_dependent_shift_and_RT_range_woParallel = function(sample,set.e
 #' @param sample the name of the sample / file batch
 #' @param set.env boolean if the environment of the R session should be setup from scratch
 #' @param use_shifting_search_window boolean, should the search window extend if intensities are detected at the edges of the EIC?
+#' @param maximum_nr_of_search_window_extensions the maximum number of search window extensions if the shifting search window is allowed per direction (left and right)
 #' @param minimum_RT_tolerance the minimum tolerance in minutes of apex retention times of a sample peak compared to expectation
 #' @param minimum_RT_tolerance_start the minimum tolerance in minutes of starting retention times of a sample peak compared to expectation
 #' @param minimum_RT_tolerance_end the minimum tolerance in minutes of ending retention times of a sample peak compared to expectation
 #' @export
-generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.env=F,use_shifting_search_window,maximum_RT_tolerance,maximum_RT_tolerance_start,maximum_RT_tolerance_end){
+generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.env=F,use_shifting_search_window,maximum_nr_of_search_window_extensions,maximum_RT_tolerance,maximum_RT_tolerance_start,maximum_RT_tolerance_end){
   
   if(set.env==T){
     environment(calculate_system_dependent_shift_and_RT_range) = .GlobalEnv
@@ -6080,8 +6478,15 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
                                       "method_time",
                                       "alphabet_size",
                                       "use_shifting_search_window",
+                                      "maximum_nr_of_search_window_extensions",
                                       "zigzag_trigger_threshold",
                                       "extended_baseline_factor",
+                                      "maximum_nr_of_stagnant_intensity_values_peaktop",
+                                      "intensity_factor_decrease_peaktop",
+                                      "intensity_factor_increase_edges",
+                                      "intensity_factor_decrease_edges",
+                                      "density_factor_increase_edges",
+                                      "density_factor_decrease_edges",
                                       "normal_background_quantile",
                                       "higher_background_quantile",
                                       "minimum_background_ratio",
@@ -6090,8 +6495,9 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
                                       "minimum_nr_of_high_intensity_letters",
                                       "maximum_peak_width",
                                       "minimum_peak_area",
-                                      "minimum_nr_of_datapoints_per_peak")) %dopar% {
-                                        get_peaks_all(sample_path,sample,RT_range,Multiple,method_time,FullscanMS1,Scan_filters,precursor_window,outer_search_window_multiple_peaks,inner_search_window_multiple_peaks,outer_intensity_ratio_multiple_peaks,inner_intensity_ratio_multiple_peaks,References_refined,compounds_shift_corrected,ppm_val,Times_shift_r=0,Times_shift_l=0,use_shifting_search_window=F,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,extended_baseline_factor,minimum_background_ratio,width_smoothing,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,z,Reference)
+                                      "minimum_nr_of_datapoints_per_peak",
+                                      "minimum_r2_intensity_dependent_shift")) %dopar% {
+                                        get_peaks_all(sample_path,sample,RT_range,Multiple,method_time,FullscanMS1,Scan_filters,precursor_window,outer_search_window_multiple_peaks,inner_search_window_multiple_peaks,outer_intensity_ratio_multiple_peaks,inner_intensity_ratio_multiple_peaks,References_refined,compounds_shift_corrected,ppm_val,Times_shift_r=0,Times_shift_l=0,use_shifting_search_window=F,maximum_nr_of_search_window_extensions,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,minimum_background_ratio,width_smoothing,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,minimum_r2_intensity_dependent_shift,z,Reference)
                                       }
       
       Peaks_all_list[[Reference]] = Peaks_all
@@ -6141,8 +6547,15 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
                                              "method_time",
                                              "alphabet_size",
                                              "use_shifting_search_window",
+                                             "maximum_nr_of_search_window_extensions",
                                              "zigzag_trigger_threshold",
                                              "extended_baseline_factor",
+                                             "maximum_nr_of_stagnant_intensity_values_peaktop",
+                                             "intensity_factor_decrease_peaktop",
+                                             "intensity_factor_increase_edges",
+                                             "intensity_factor_decrease_edges",
+                                             "density_factor_increase_edges",
+                                             "density_factor_decrease_edges",
                                              "normal_background_quantile",
                                              "higher_background_quantile",
                                              "minimum_background_ratio",
@@ -6151,8 +6564,9 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
                                              "minimum_nr_of_high_intensity_letters",
                                              "maximum_peak_width",
                                              "minimum_peak_area",
-                                             "minimum_nr_of_datapoints_per_peak")) %dopar% {
-                                               get_peaks_all(sample_path,sample,RT_range,Multiple,method_time,FullscanMS1,Scan_filters,precursor_window,outer_search_window_multiple_peaks,inner_search_window_multiple_peaks,outer_intensity_ratio_multiple_peaks,inner_intensity_ratio_multiple_peaks,References_refined=Qual_files,compounds_shift_corrected=compounds_qual_shift_corrected,ppm_val,Times_shift_r=0,Times_shift_l=0,use_shifting_search_window=use_shifting_search_window,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,extended_baseline_factor,minimum_background_ratio,width_smoothing,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,z,Reference)
+                                             "minimum_nr_of_datapoints_per_peak",
+                                             "minimum_r2_intensity_dependent_shift")) %dopar% {
+                                               get_peaks_all(sample_path,sample,RT_range,Multiple,method_time,FullscanMS1,Scan_filters,precursor_window,outer_search_window_multiple_peaks,inner_search_window_multiple_peaks,outer_intensity_ratio_multiple_peaks,inner_intensity_ratio_multiple_peaks,References_refined=Qual_files,compounds_shift_corrected=compounds_qual_shift_corrected,ppm_val,Times_shift_r=0,Times_shift_l=0,use_shifting_search_window=use_shifting_search_window,maximum_nr_of_search_window_extensions,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,minimum_background_ratio,width_smoothing,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,minimum_r2_intensity_dependent_shift,z,Reference)
                                              }
       }
     },error=errors)
@@ -6261,6 +6675,23 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
           Remaining_RT = as.data.frame(table(round(Remaining_RT_1,digits = 2)))
         } else {
           Remaining_RT = as.data.frame(table(round(Remaining_RT_1,digits = 1)))
+        }
+        
+        if(nrow(Remaining_RT)==0){
+          Peaks$Comment[p] = "no matched RTs"
+          final_ions = Peaks[p,]
+          final_ions$ratio = 1
+          final_ions$type = "quan"
+          Peaks_list[[p]] = final_ions
+          next
+        }
+        
+        concentrations = unique(Remaining$Concentration)
+        Remaining_RT = Remaining_RT[Remaining_RT$Freq>0.25*length(concentrations),]
+        if(grepl("GC",sample)){
+          Remaining = Remaining[round(plyr::round_any(Remaining$RT,0.05,f=floor),digits = 2)%in%Remaining_RT$Var1,]
+        } else {
+          Remaining = Remaining[round(plyr::round_any(Remaining$RT,0.05,f=floor),digits = 1)%in%Remaining_RT$Var1,]
         }
         
         if(length(Remaining_RT$Var1)>1){
@@ -6462,6 +6893,23 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
               Remaining_RT = as.data.frame(table(round(Remaining_RT_1,digits = 2)))
             } else {
               Remaining_RT = as.data.frame(table(round(Remaining_RT_1,digits = 1)))
+            }
+            
+            if(nrow(Remaining_RT)==0){
+              Peaks$Comment[p] = "no matched RTs"
+              final_ions = Peaks[p,]
+              final_ions$ratio = 1
+              final_ions$type = "quan"
+              Peaks_list[[p]] = final_ions
+              next
+            }
+            
+            concentrations = unique(Remaining$Concentration)
+            Remaining_RT = Remaining_RT[Remaining_RT$Freq>0.25*length(concentrations),]
+            if(grepl("GC",sample)){
+              Remaining = Remaining[round(plyr::round_any(Remaining$RT,0.05,f=floor),digits = 2)%in%Remaining_RT$Var1,]
+            } else {
+              Remaining = Remaining[round(plyr::round_any(Remaining$RT,0.05,f=floor),digits = 1)%in%Remaining_RT$Var1,]
             }
             
             allions_frame = as.data.frame(matrix(nrow=(nrow(QuanIon_peaks)+nrow(QualIon_peaks)),ncol=2))
@@ -6744,6 +7192,14 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
               final_ions$type = "quan"
               Peaks_list[[p]] = final_ions
               next
+            }
+            
+            concentrations = unique(Remaining$Concentration)
+            Remaining_RT = Remaining_RT[Remaining_RT$Freq>0.25*length(concentrations),]
+            if(grepl("GC",sample)){
+              Remaining = Remaining[round(plyr::round_any(Remaining$RT,0.05,f=floor),digits = 2)%in%Remaining_RT$Var1,]
+            } else {
+              Remaining = Remaining[round(plyr::round_any(Remaining$RT,0.05,f=floor),digits = 1)%in%Remaining_RT$Var1,]
             }
             
             allions_frame = as.data.frame(matrix(nrow=(nrow(QuanIon_peaks)+nrow(QualIon_peaks)),ncol=2))
@@ -7237,7 +7693,7 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
           } else {
             R2 = summary(model)$r.squared
           }
-          if(R2 < 0.7){
+          if(R2 < minimum_r2_intensity_dependent_shift){
             intensity_dependent_frame = intensity_dependent_frame[diffs>0.1,]
           }
         }
@@ -7299,7 +7755,7 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
         ratio_same_RT = sum_frequencies/nrow(intensity_dependent_frame)
       }
       
-      if(R2 > 0.7&R2_2>0.7&ratio_same_RT<=0.5&residual_error<=20){
+      if(R2 > minimum_r2_intensity_dependent_shift&R2_2>minimum_r2_intensity_dependent_shift&ratio_same_RT<=0.5&residual_error<=20){
         intensity_dependent_shift = data.frame("int"=rep(NA,nrow(intensity_dependent_frame)),
                                                "shift"=rep(NA,nrow(intensity_dependent_frame)))
         intensity_dependent_shift$int = plyr::round_any(as.numeric(intensity_dependent_frame$int),accuracy = 1)
@@ -7314,7 +7770,7 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
         Peaks$max_MINDIST[p] = max(mindists,na.rm = T)
         Intensity_dependent_shift_names = append(Intensity_dependent_shift_names,Remove_ion(Peaks$Compound[p]))
         Intensity_dependent_shift = c(Intensity_dependent_shift,list(intensity_dependent_shift))
-      } else if(R2 > 0.7){
+      } else if(R2 > minimum_r2_intensity_dependent_shift){
         Peaks$Sequence[p] = SAX_consensus(intensity_dependent_frame$sequence)
         mindists = rep(NA,nrow(intensity_dependent_frame))
         for(min in 1:nrow(intensity_dependent_frame)){
@@ -7345,9 +7801,16 @@ generate_peaklist_and_calculate_intensity_dependent_shift = function(sample,set.
   Peaks$Start_var = as.numeric(Peaks$Start_var)
   Peaks$End_var = as.numeric(Peaks$End_var)
   
-  Peaks$Start_var =  as.numeric(plyr::round_any(Peaks$Width,f=ceiling,accuracy=0.05)*1.5)
-  Peaks$End_var =  as.numeric(plyr::round_any(Peaks$Width,f=ceiling,accuracy=0.05)*1.5)
-  Peaks$RT_tol =  as.numeric(plyr::round_any(Peaks$Width,f=ceiling,accuracy=0.05))
+  if(T%in%grepl("GC",sample)){
+    Peaks$Start_var =  as.numeric(plyr::round_any(Peaks$Width,f=ceiling,accuracy=0.05)*1.5)
+    Peaks$End_var =  as.numeric(plyr::round_any(Peaks$Width,f=ceiling,accuracy=0.05)*1.5)
+    Peaks$RT_tol =  as.numeric(plyr::round_any(Peaks$Width,f=ceiling,accuracy=0.05))
+  } else {
+    Peaks$Start_var =  as.numeric(plyr::round_any(Peaks$Width,f=ceiling,accuracy=0.1)*1.5)
+    Peaks$End_var =  as.numeric(plyr::round_any(Peaks$Width,f=ceiling,accuracy=0.1)*1.5)
+    Peaks$RT_tol =  as.numeric(plyr::round_any(Peaks$Width,f=ceiling,accuracy=0.1))
+  }
+  
   Peaks$Start_var[is.na(Peaks$Start_var)] = maximum_RT_tolerance_start
   Peaks$End_var[is.na(Peaks$End_var)] = maximum_RT_tolerance_end
   Peaks$RT_tol[is.na(Peaks$RT_tol)] = maximum_RT_tolerance
@@ -7415,8 +7878,8 @@ calculate_IS_dependent_shift = function(sample,set.env=F){
                                  .combine = "rbind",
                                  .multicombine = T,
                                  .options.snow=opts,
-                                 .export = c("sample_path","files","sample","Multiple","RT_range","SAX_reference_table","compounds_shift_corrected","Solvent_Blank_ID","Peaks_IS","Peaks_list_IS","FullscanMS1","method_time","ppm_val","functions",names(functions),"j","alphabet_size","zigzag_trigger_threshold","extended_baseline_factor","normal_background_quantile","width_factor_background","sample_search_window","higher_background_quantile","minimum_background_ratio","width_smoothing","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","maximum_peak_width","minimum_peak_area","minimum_nr_of_datapoints_per_peak")) %dopar% {
-                                   IS_analysis(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,Multiple,RT_range,files,Peaks=Peaks_IS,Peaks_list=Peaks_list_IS,compounds_shift_corrected,FullscanMS1,Scan_filters,ppm_val,method_time,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,width_smoothing,width_factor_background,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,m,t,j)
+                                 .export = c("sample_path","files","sample","Multiple","RT_range","SAX_reference_table","compounds_shift_corrected","Solvent_Blank_ID","Peaks_IS","Peaks_list_IS","FullscanMS1","method_time","ppm_val","functions",names(functions),"j","alphabet_size","zigzag_trigger_threshold","extended_baseline_factor","maximum_nr_of_stagnant_intensity_values_peaktop","intensity_factor_decrease_peaktop","intensity_factor_increase_edges","intensity_factor_decrease_edges","density_factor_increase_edges","density_factor_decrease_edges","normal_background_quantile","width_factor_background","sample_search_window","higher_background_quantile","minimum_background_ratio","width_smoothing","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","maximum_peak_width","minimum_peak_area","minimum_nr_of_datapoints_per_peak")) %dopar% {
+                                   IS_analysis(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,Multiple,RT_range,files,Peaks=Peaks_IS,Peaks_list=Peaks_list_IS,compounds_shift_corrected,FullscanMS1,Scan_filters,ppm_val,method_time,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,width_smoothing,width_factor_background,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,m,t,j)
                                  }
       
       Peaklists_IS[[j]] = Peaklist_file_IS
@@ -7501,8 +7964,8 @@ target_screening_of_files = function(sample,set.env=F,gen.plots,use.MINDIST,use.
                               .packages = c("seewave","dplyr","rawrr","zoo","stats","MESS","tcpl","stringr","ggplot2","ggtext","RaMS"),
                               .combine = "rbind",
                               .multicombine = T,
-                              .export = c("sample_path","results_path","sample","files","Peaks","Peaks_list","Solvent_Blank_ID","IS_dependent_shift","Intensity_dependent_shift","IS_Assignment","compounds_shift_corrected","RT_range","FullscanMS1","precursor_window","inner_intensity_ratio_multiple_peaks","Scan_filters","Multiple","ppm_val","method_time","gen.plots","use.MINDIST","SAX_reference_table","IS_deviation","functions",names(functions),"j","alphabet_size","zigzag_trigger_threshold","normal_background_quantile","higher_background_quantile","minimum_background_ratio","extended_baseline_factor","width_smoothing","width_factor_background","sample_search_window","maximum_allowed_shift","maximum_allowed_shift_ratio","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","minimum_nr_of_datapoints_per_peak","minimum_peak_area","maximum_peak_width","minimum_cutoff_intensity_factor","minimum_confirming_peak_height","max_MINDIST","minimum_datapoints_per_sample_peak","minimum_qualitative_threshold")) %dopar% {
-                                sample_analysis(sample_path,results_path,sample,files,Peaks,Peaks_list,Solvent_Blank_ID,IS_dependent_shift,Intensity_dependent_shift,Multiple,FullscanMS1,precursor_window,inner_intensity_ratio_multiple_peaks,Scan_filters,IS_Assignment,compounds_shift_corrected,RT_range,ppm_val,method_time,IS_deviation,gen.plots,use.MINDIST,SAX_reference_table,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,width_smoothing,width_factor_background,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,maximum_allowed_shift,maximum_allowed_shift_ratio,minimum_cutoff_intensity_factor,minimum_confirming_peak_height,max_MINDIST,minimum_datapoints_per_sample_peak,minimum_qualitative_threshold,t,j,rep=F)
+                              .export = c("sample_path","results_path","sample","files","Peaks","Peaks_list","Solvent_Blank_ID","IS_dependent_shift","Intensity_dependent_shift","IS_Assignment","compounds_shift_corrected","RT_range","FullscanMS1","precursor_window","inner_intensity_ratio_multiple_peaks","Scan_filters","Multiple","ppm_val","method_time","gen.plots","use.MINDIST","SAX_reference_table","IS_deviation","functions",names(functions),"j","alphabet_size","zigzag_trigger_threshold","normal_background_quantile","higher_background_quantile","minimum_background_ratio","extended_baseline_factor","maximum_nr_of_stagnant_intensity_values_peaktop","intensity_factor_decrease_peaktop","intensity_factor_increase_edges","intensity_factor_decrease_edges","density_factor_increase_edges","density_factor_decrease_edges","width_smoothing","width_factor_background","sample_search_window","maximum_allowed_shift","maximum_allowed_shift_ratio","maximum_nr_of_a","minimum_nr_of_high_intensity_letters","minimum_nr_of_datapoints_per_peak","minimum_peak_area","maximum_peak_width","minimum_cutoff_intensity_factor","minimum_confirming_peak_height","max_MINDIST","minimum_datapoints_per_sample_peak","minimum_qualitative_threshold")) %dopar% {
+                                sample_analysis(sample_path,results_path,sample,files,Peaks,Peaks_list,Solvent_Blank_ID,IS_dependent_shift,Intensity_dependent_shift,Multiple,FullscanMS1,precursor_window,inner_intensity_ratio_multiple_peaks,Scan_filters,IS_Assignment,compounds_shift_corrected,RT_range,ppm_val,method_time,IS_deviation,gen.plots,use.MINDIST,SAX_reference_table,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,width_smoothing,width_factor_background,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,maximum_allowed_shift,maximum_allowed_shift_ratio,minimum_cutoff_intensity_factor,minimum_confirming_peak_height,max_MINDIST,minimum_datapoints_per_sample_peak,minimum_qualitative_threshold,extend_r=0,extend_l=0,t,j,rep=F)
                               }
       
       Peaklists[[j]] = Peaklist_file

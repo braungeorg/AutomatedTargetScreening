@@ -8,6 +8,7 @@ generate_peaklist_and_calculate_intensity_dependent_shift(
   sample,
   set.env = F,
   use_shifting_search_window,
+  maximum_nr_of_search_window_extensions,
   maximum_RT_tolerance,
   maximum_RT_tolerance_start,
   maximum_RT_tolerance_end
@@ -19,6 +20,8 @@ generate_peaklist_and_calculate_intensity_dependent_shift(
 \item{set.env}{boolean if the environment of the R session should be setup from scratch}
 
 \item{use_shifting_search_window}{boolean, should the search window extend if intensities are detected at the edges of the EIC?}
+
+\item{maximum_nr_of_search_window_extensions}{the maximum number of search window extensions if the shifting search window is allowed per direction (left and right)}
 
 \item{minimum_RT_tolerance}{the minimum tolerance in minutes of apex retention times of a sample peak compared to expectation}
 
