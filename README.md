@@ -10,7 +10,7 @@ The package is based on R version 4.1.3. The package is installed using the `dev
 devtools::install_github("braungeorg/AutomatedTargetScreening")
 ```
 
-This will install ATS and its function documentation as well as CRAN-accessible dependencies to your local R and R Studio. However, the R package `rawrr` needs to be installed seperately using the R package `BiocManager`. All dependencies including `rawrr` are installed if the `Automated_Target_Screening_workflow.R` script within the example environment from Zenodo (10.5281/zenodo.10566339). However, you can also run the following code to install all packages including `rawrr`. 
+This will install ATS and its function documentation as well as CRAN-accessible dependencies to your local R and R Studio. However, the R package `rawrr` needs to be installed seperately using the R package `BiocManager`. All dependencies including `rawrr` are installed if the `Automated_Target_Screening_workflow.R` script within the example environment from Zenodo (10.5281/zenodo.10777244). However, you can also run the following code to install all packages including `rawrr`. 
 
 ```R
 packages <- c("dplyr", "rawrr", "RaMS", "openxlsx","qpdf","data.table",
@@ -51,7 +51,7 @@ invisible(lapply(packages, library, character.only = TRUE))
 ```
 Please note that the functions `installRawFileReaderDLLs()` and `installRawrrExe()` of the `rawrr` package need to be executed before the ATS script can be used for `.raw` files. 
 
-Once the package and all its dependencies are installed to your library you can use the `Environment` folder provided on Zenodo via 10.5281/zenodo.10566339. Copy this `Environment` folder to wherever you like. 
+Once the package and all its dependencies are installed to your library you can use the `Environment` folder provided on Zenodo via 10.5281/zenodo.10777244. Copy this `Environment` folder to wherever you like. 
 
 It already includes the .R scripts within the `0_Scripts` folder which can be used for analysis of sample batches included in the `2_Samples` folder. The `1_Targets` folder includes the target lists, assignments of internal standards, lists of multiple peaks, and list of analytes for qualitative analysis. There are already folders created in `2_Samples` for *LC* and *GC* and their respective .yaml files for analysis settings. These example files cover only a small set of analytes for LC-ESIpos and GC-EI. The sample files were minified .mzML files which were created using the `RaMS`R package. Further, the `3_Results` folder already includes the results after analysis with ATS. 
 
