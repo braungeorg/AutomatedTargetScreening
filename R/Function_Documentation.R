@@ -5360,7 +5360,7 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
     }
   }
   #If there are confirming ions present, this is one major argument for peak x
-  Peaklist_final = Peaklist_final[!is.na(Peaklist_final$confirmed),]
+  Peaklist_final = Peaklist_final[Peaklist_final$confirmed>=0,]
   if(nrow(Peaklist_final)==0){
     Peaklist_final = data.frame("Compound"=NA,"mz"=NA, "Comment" = NA, "Start_RT" = NA,"RT" = NA,"End_RT" = NA,"Start_RT_level"=NA,"End_RT_level"=NA,"Sequence" = NA,"Nr_of_Points"=NA,"Width" = NA,"Height" = NA,"Area" = NA,"intensity_shift"=NA, "LOD" = NA, "LOQ" = NA,"confirmed"=NA)
     Peaklist_final$Compound = quan_peak$Compound
