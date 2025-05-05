@@ -2995,7 +2995,7 @@ IS_analysis = function(sample_path,sample,SAX_reference_table,Solvent_Blank_ID,M
 #' @param j index of the file to be analyzed in files
 #' @param rep boolean if the function was already called before
 #' @export
-sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_list,Solvent_Blank_ID,IS_dependent_shift,Intensity_dependent_shift,Multiple,FullscanMS1,precursor_window,inner_intensity_ratio_multiple_peaks,Scan_filters,IS_Assignment,compounds_shift_corrected,RT_range,ppm_val,method_time,IS_deviation,gen.plots,use.MINDIST,SAX_reference_table,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,width_smoothing,width_factor_background,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,maximum_allowed_shift,maximum_allowed_shift_ratio,minimum_cutoff_intensity_factor,minimum_confirming_peak_height,max_MINDIST,minimum_datapoints_per_sample_peak,minimum_qualitative_threshold,extend_r=0,extend_l=0,t,j,rep){
+sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_list,Solvent_Blank_ID,IS_dependent_shift,Intensity_dependent_shift,Multiple,FullscanMS1,precursor_window,inner_intensity_ratio_multiple_peaks,Scan_filters,IS_Assignment,compounds_shift_corrected,RT_range,ppm_val,method_time,IS_deviation,gen.plots,use.MINDIST,SAX_reference_table,alphabet_size,zigzag_trigger_threshold,normal_background_quantile,higher_background_quantile,minimum_background_ratio,extended_baseline_factor,maximum_nr_of_stagnant_intensity_values_peaktop,intensity_factor_decrease_peaktop,intensity_factor_increase_edges,intensity_factor_decrease_edges,density_factor_increase_edges,density_factor_decrease_edges,width_smoothing,width_factor_background,sample_search_window,maximum_nr_of_a,minimum_nr_of_high_intensity_letters,maximum_peak_width,minimum_peak_area,minimum_nr_of_datapoints_per_peak,maximum_allowed_shift,maximum_allowed_shift_ratio,minimum_cutoff_intensity_factor,minimum_confirming_peak_height,max_MINDIST,minimum_datapoints_per_sample_peak,minimum_qualitative_threshold,extend_r=0,extend_l=0,t,j,rep=F){
   
   quan_peak = Peaks[t,]
   ID = as.numeric(substr(Peaks$Compound[t],1,4))
@@ -5374,9 +5374,9 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
     } else {
       perfect_RT_match = T%in%RT_diffis<=0.1
     }
-    perfect_match_confirmed = match(min(RT_diffis,na.rm=T),RT_diffis)==match(max(Peaklist_final$confirmed),Peaklist_final$confirmed)
+    perfect_match_confirmed = match(min(RT_diffis,na.rm=T),RT_diffis)%in%which(max(Peaklist_final$confirmed)==Peaklist_final$confirmed)
     if(!perfect_RT_match|perfect_match_confirmed){
-      Peaklist_final = Peaklist_final[Peaklist_final$confirmed==max(Peaklist_final$confirmed,na.rm=T),]
+      Peaklist_final = Peaklist_final[match(min(RT_diffis,na.rm=T)),]
       if(nrow(Peaklist_final)==0){
         Peaklist_final = data.frame("Compound"=NA,"mz"=NA, "Comment" = NA, "Start_RT" = NA,"RT" = NA,"End_RT" = NA,"Start_RT_level"=NA,"End_RT_level"=NA,"Sequence" = NA,"Nr_of_Points"=NA,"Width" = NA,"Height" = NA,"Area" = NA,"intensity_shift"=NA, "LOD" = NA, "LOQ" = NA,"confirmed"=NA)
         Peaklist_final$Compound = quan_peak$Compound
@@ -5442,7 +5442,7 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
         diff.grid = diff.grid[diff.grid$diff!=0,]
         differences = unique(diff.grid$diff)
         nearest_peaks = min(diff)==diff.grid$Var1[diff.grid$diff==min(diff.grid$diff)]
-        if(min(differences)<0.05&T%in%nearest_peaks){
+        if(use.MINDIST==T&min(differences)<0.05&T%in%nearest_peaks){
           minidist = rep(NA,nrow(Peaklist_final))
           for(mi in 1:length(minidist)){
             minidist[mi] = SAX_mindist(Peaklist_final$Sequence[mi],Peaks$Sequence[t],Peaklist_final$Nr_of_Points[mi],SAX_reference_table)
