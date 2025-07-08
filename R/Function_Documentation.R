@@ -5376,7 +5376,7 @@ sample_analysis = function(sample_path,results_path,sample,files,Peaks,Peaks_lis
     }
     perfect_match_confirmed = match(min(RT_diffis,na.rm=T),RT_diffis)%in%which(max(Peaklist_final$confirmed)==Peaklist_final$confirmed)
     if(!perfect_RT_match|perfect_match_confirmed){
-      Peaklist_final = Peaklist_final[match(min(RT_diffis,na.rm=T)),]
+      Peaklist_final = Peaklist_final[match(min(RT_diffis,na.rm=T),RT_diffis),]
       if(nrow(Peaklist_final)==0){
         Peaklist_final = data.frame("Compound"=NA,"mz"=NA, "Comment" = NA, "Start_RT" = NA,"RT" = NA,"End_RT" = NA,"Start_RT_level"=NA,"End_RT_level"=NA,"Sequence" = NA,"Nr_of_Points"=NA,"Width" = NA,"Height" = NA,"Area" = NA,"intensity_shift"=NA, "LOD" = NA, "LOQ" = NA,"confirmed"=NA)
         Peaklist_final$Compound = quan_peak$Compound
