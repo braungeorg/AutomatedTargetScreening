@@ -8468,14 +8468,13 @@ quantify_samples = function(sample,set.env=F,max_calibration,use.area,quantified
             break
           }
           cooksD = cooks.distance(model)
-          influential <- frame$y[cooksD > (3 * mean(cooksD, na.rm = TRUE))]
+          influential = which(cooksD > (3 * mean(cooksD,na.rm=T)))
           if(length(influential)==0){
             influential = NaN
           }
           if(!is.nan(influential)){
             frame_new = frame
-            frame_new$y[match(max(influential),frame_new$y)] = NaN
-            frame_new$y[frame_new$y%in%influential] = NaN
+            frame_new$y[influential] = NaN
             frame_new = frame_new[!is.nan(frame_new$y),]
             model_new = lm(formula=y~0+x,data = frame_new)
             r2 = round(summary(model_new)$adj.r.squared,digits = 2)
@@ -8534,14 +8533,13 @@ quantify_samples = function(sample,set.env=F,max_calibration,use.area,quantified
             break
           }
           cooksD = cooks.distance(model)
-          influential <- frame$y[cooksD > (3 * mean(cooksD, na.rm = TRUE))]
+          influential = which(cooksD > (3 * mean(cooksD,na.rm=T)))
           if(length(influential)==0){
             influential = NaN
           }
           if(!is.nan(influential)){
             frame_new = frame
-            frame_new$y[match(max(influential),frame_new$y)] = NaN
-            frame_new$y[frame_new$y%in%influential] = NaN
+            frame_new$y[influential] = NaN
             frame_new = frame_new[!is.nan(frame_new$y),]
             model_new = lm(formula=y~0+x,data = frame_new,weights = x)
             r2 = round(summary(model_new)$adj.r.squared,digits = 2)
@@ -8601,14 +8599,13 @@ quantify_samples = function(sample,set.env=F,max_calibration,use.area,quantified
             break
           }
           cooksD = cooks.distance(model)
-          influential <- frame$y[cooksD > (3 * mean(cooksD, na.rm = TRUE))]
+          influential = which(cooksD > (3 * mean(cooksD,na.rm=T)))
           if(length(influential)==0){
             influential = NaN
           }
           if(!is.nan(influential)){
             frame_new = frame
-            frame_new$y[match(max(influential),frame_new$y)] = NaN
-            frame_new$y[frame_new$y%in%influential] = NaN
+            frame_new$y[influential] = NaN
             frame_new = frame_new[!is.nan(frame_new$y),]
             model_new = lm(formula=y~0+x,data = frame_new,weights = 1/x)
             r2 = round(summary(model_new)$adj.r.squared,digits = 2)
@@ -8673,13 +8670,13 @@ quantify_samples = function(sample,set.env=F,max_calibration,use.area,quantified
               break
             }
             cooksD = cooks.distance(model)
-            influential <- frame$y[cooksD > (3 * mean(cooksD, na.rm = TRUE))]
+            influential = which(cooksD > (3 * mean(cooksD,na.rm=T)))
             if(length(influential)==0){
               influential = NaN
             }
             if(!is.nan(influential)){
               frame_new = frame
-              frame_new$y[match(max(influential),frame_new$y)] = NaN
+              frame_new$y[influential] = NaN
               frame_new = frame_new[!is.nan(frame_new$y),]
               model_new = lm(formula=y~x,data = frame_new)
               r2 = round(summary(model_new)$adj.r.squared,digits = 2)
@@ -8751,13 +8748,13 @@ quantify_samples = function(sample,set.env=F,max_calibration,use.area,quantified
               break
             }
             cooksD = cooks.distance(model)
-            influential <- frame$y[cooksD > (3 * mean(cooksD, na.rm = TRUE))]
+            influential = which(cooksD > (3 * mean(cooksD,na.rm=T)))
             if(length(influential)==0){
               influential = NaN
             }
             if(!is.nan(influential)){
               frame_new = frame
-              frame_new$y[match(max(influential),frame_new$y)] = NaN
+              frame_new$y[influential] = NaN
               frame_new = frame_new[!is.nan(frame_new$y),]
               model_new = lm(formula=y~x,data = frame_new,weights = x)
               r2 = round(summary(model_new)$adj.r.squared,digits = 2)
@@ -8828,13 +8825,13 @@ quantify_samples = function(sample,set.env=F,max_calibration,use.area,quantified
               break
             }
             cooksD = cooks.distance(model)
-            influential <- frame$y[cooksD > (3 * mean(cooksD, na.rm = TRUE))]
+            influential = which(cooksD > (3 * mean(cooksD,na.rm=T)))
             if(length(influential)==0){
               influential = NaN
             }
             if(!is.nan(influential)){
               frame_new = frame
-              frame_new$y[match(max(influential),frame_new$y)] = NaN
+              frame_new$y[influential] = NaN
               frame_new = frame_new[!is.nan(frame_new$y),]
               model_new = lm(formula=y~x,data = frame_new,weights = 1/x)
               r2 = round(summary(model_new)$adj.r.squared,digits = 2)
@@ -8994,7 +8991,7 @@ quantify_samples = function(sample,set.env=F,max_calibration,use.area,quantified
       
       if(Results_final$`Blank values`[rec]>0&!is.na(mean)&!is.nan(mean)){
         Results_final$`Blank values`[rec] = as.numeric(Results_final$`Blank values`[rec])/mean*100
-      } else if (Results_final$`Blank values`>0) {
+      } else if (Results_final$`Blank values`[rec]>0) {
         Results_final$`Blank values`[rec] = -1
       }
     }
